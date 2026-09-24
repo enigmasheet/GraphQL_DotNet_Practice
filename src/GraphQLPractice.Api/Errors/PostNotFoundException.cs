@@ -1,4 +1,4 @@
-namespace GraphQLPractice.Api.GraphQL.Errors;
+namespace GraphQLPractice.Api.Errors;
 
 public sealed class PostNotFoundException(int postId)
     : Exception($"Post with id {postId} was not found.")

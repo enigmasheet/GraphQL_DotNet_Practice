@@ -1,15 +1,11 @@
 using GraphQLPractice.Api.Models;
 using HotChocolate.Subscriptions;
 
-namespace GraphQLPractice.Api.GraphQL;
+namespace GraphQLPractice.Api.Modules.Comments;
 
 [SubscriptionType]
-public static partial class Subscription
+public static partial class CommentSubscription
 {
-    [Subscribe]
-    [Topic("OnPostPublished")]
-    public static BlogPost OnPostPublished([EventMessage] BlogPost post) => post;
-
     // Dynamic topic: {postId} is replaced with the argument value, so a client
     // subscribing with a specific postId only receives that post's comments.
     [Subscribe]

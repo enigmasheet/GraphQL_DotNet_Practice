@@ -1,35 +1,15 @@
 using GraphQLPractice.Api.Data;
-using GraphQLPractice.Api.GraphQL.Errors;
+using GraphQLPractice.Api.Errors;
 using GraphQLPractice.Api.Models;
 using GraphQLPractice.Api.Utilities;
 using HotChocolate.Subscriptions;
 using Microsoft.EntityFrameworkCore;
 
-namespace GraphQLPractice.Api.GraphQL;
+namespace GraphQLPractice.Api.Modules.Posts;
 
 [MutationType]
-public static partial class Mutation
+public static partial class PostMutations
 {
-    public static async Task<Author> CreateAuthorAsync(
-        string name,
-        string? bio,
-        AppDbContext db,
-        CancellationToken ct
-    )
-    {
-        var author = new Author
-        {
-            Name = name,
-            Bio = bio,
-            CreatedAt = DateTimeOffset.UtcNow,
-        };
-
-        db.Authors.Add(author);
-        await db.SaveChangesAsync(ct);
-
-        return author;
-    }
-
     [Error(typeof(AuthorNotFoundException))]
     [Error(typeof(SlugAlreadyInUseException))]
     public static async Task<BlogPost> CreatePostAsync(
@@ -75,7 +55,7 @@ public static partial class Mutation
 
         if (post.Status == PostStatus.Published)
         {
-            await sender.SendAsync(nameof(Subscription.OnPostPublished), post, ct);
+            await sender.SendAsync(nameof(PostSubscription.OnPostPublished), post, ct);
         }
 
         return post;
@@ -142,39 +122,5 @@ public static partial class Mutation
         await db.SaveChangesAsync(ct);
 
         return post;
-    }
-
-    [Error(typeof(AuthorNotFoundException))]
-    [Error(typeof(PostNotFoundException))]
-    public static async Task<Comment> AddCommentAsync(
-        int postId,
-        int authorId,
-        string text,
-        AppDbContext db,
-        ITopicEventSender sender,
-        CancellationToken ct
-    )
-    {
-        _ = await db.BlogPosts.FindAsync([postId], ct) ?? throw new PostNotFoundException(postId);
-
-        _ =
-            await db.Authors.FindAsync([authorId], ct)
-            ?? throw new AuthorNotFoundException(authorId);
-
-        var comment = new Comment
-        {
-            Text = text,
-            BlogPostId = postId,
-            AuthorId = authorId,
-            CreatedAt = DateTimeOffset.UtcNow,
-        };
-
-        db.Comments.Add(comment);
-        await db.SaveChangesAsync(ct);
-
-        // Dynamic topic: subscribers filtered by postId receive only their post's comments.
-        await sender.SendAsync($"OnCommentAdded_{postId}", comment, ct);
-
-        return comment;
     }
 }

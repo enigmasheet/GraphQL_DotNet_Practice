@@ -1,4 +1,4 @@
-namespace GraphQLPractice.Api.GraphQL.Errors;
+namespace GraphQLPractice.Api.Errors;
 
 public sealed class AuthorNotFoundException(int authorId)
     : Exception($"Author with id {authorId} was not found.")

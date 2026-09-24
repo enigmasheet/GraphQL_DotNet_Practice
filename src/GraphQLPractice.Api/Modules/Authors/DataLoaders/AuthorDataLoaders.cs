@@ -2,7 +2,7 @@ using GraphQLPractice.Api.Data;
 using GraphQLPractice.Api.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace GraphQLPractice.Api.GraphQL.DataLoaders;
+namespace GraphQLPractice.Api.Modules.Authors;
 
 internal static class AuthorDataLoaders
 {

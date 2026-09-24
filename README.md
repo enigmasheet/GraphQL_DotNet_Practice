@@ -160,6 +160,10 @@ dotnet graphql generate -p src\GraphQLPractice.Client # regenerate the typed cli
 | `database "graphqlpractice" does not exist` | Run `.\new-db.ps1 graphqlpractice` in the infra folder. |
 | Client shows no data / CORS errors | The API must be running on `5100` and must allow `http://localhost:5200` (see `Cors:AllowedOrigins` in `appsettings.json`). |
 | Nitro page is blank | It is loaded from a CDN; check your connection or set `ServeMode = Embedded`. |
+| Nitro shows **"Fusion Operation Plan Not Supported"** | Expected. Query plans belong to a Fusion gateway (`AddGraphQLGateway()`); this is a single graph, so there is no plan. Nothing to fix — see [docs/graphql-tour.md](docs/graphql-tour.md#using-nitro). |
+| Variables look ignored / filter returns nothing | Omitting a variable is not the same as sending `null`; `eq: null` matches nothing. Also check types (`Int` vs `String`, enums as `"PUBLISHED"`). See [docs/graphql-tour.md](docs/graphql-tour.md#2-variables). |
+| A query returns `null` where you expected an error | Missing objects are `null`, not errors (e.g. `postById(id: 99999)`). Domain errors only appear on mutation payloads. See [docs/graphql-tour.md](docs/graphql-tour.md#10-debugging). |
+| Can't tell why a request failed | `400` = bad request (no `path`); `200` + `errors[].path` = field error. Read `extensions.code` (e.g. `HC0012`, `HC0051`). See [docs/graphql-tour.md](docs/graphql-tour.md#10-debugging). |
 | Client debug profile looks stale | Delete `src\GraphQLPractice.Client\GraphQLPractice.Client.csproj.user` (it pins an old `https` profile). It is git-ignored. |
 
 ## A note on "Scalar" vs "scalar"
@@ -168,7 +172,7 @@ dotnet graphql generate -p src\GraphQLPractice.Client # regenerate the typed cli
 render a GraphQL schema. The GraphQL equivalent of Swagger UI is **Nitro**, which Hot Chocolate
 serves at `/graphql`. Separately, a GraphQL **scalar** is a leaf type (`String`, `Int`, `DateTime`,
 or a custom one); those are configured in code, not in the UI. See
-[docs/graphql-tour.md](docs/graphql-tour.md#scalars).
+[docs/graphql-tour.md](docs/graphql-tour.md#12-scalars).
 
 ## Deliberately out of scope
 
