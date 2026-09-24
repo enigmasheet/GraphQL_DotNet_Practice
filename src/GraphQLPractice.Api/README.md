@@ -73,10 +73,24 @@ Notes:
 ## Global object identification
 
 `AddGlobalObjectIdentification()` (in `Program.cs`) turns on the Relay `Node` interface. Every entity
-is decorated with `[Node]`, each module's queries expose a `[NodeResolver]` (`ResolvePostAsync`, …), and
-entity `id`s are surfaced as global `ID!` values (`QmxvZ1Bvc3Q6MQ==` ⟷ `BlogPost:1`). The legacy
-`authorById`/`postById` fields are `[GraphQLDeprecated]` and resolvers are hidden with `[GraphQLIgnore]`
-so only `node(id:)`/`nodes(ids:)` appear on `Query`.
+is decorated with `[Node]` and surfaced with a global `ID!` (`QmxvZ1Bvc3Q6MQ==` ⟷ `BlogPost:1`).
+
+The resolver that re-fetches a node lives in its own module class (`Modules/*/*NodeResolver.cs`, e.g.
+`PostNodeResolver.GetPostAsync`) and the model points at it:
+
+```csharp
+[Node(
+    NodeResolverType = typeof(Modules.Posts.PostNodeResolver),
+    NodeResolver = nameof(Modules.Posts.PostNodeResolver.GetPostAsync)
+)]
+public sealed class BlogPost { … }
+```
+
+It must **not** live in a `[QueryType]`: there the method would also become a `Query` field, and
+marking it `[GraphQLIgnore]` instead removes it from node resolution (the schema then fails to build
+with "implements the node interface but does not provide a node resolver"). The legacy
+`authorById`/`postById` fields are `[GraphQLDeprecated]`, so only `node(id:)`/`nodes(ids:)` are the
+supported re-fetch path.
 
 ## Migrations
 

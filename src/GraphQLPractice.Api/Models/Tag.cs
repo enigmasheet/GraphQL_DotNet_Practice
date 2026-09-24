@@ -1,6 +1,9 @@
 namespace GraphQLPractice.Api.Models;
 
-[Node]
+[Node(
+    NodeResolverType = typeof(Modules.Tags.TagNodeResolver),
+    NodeResolver = nameof(Modules.Tags.TagNodeResolver.GetTagAsync)
+)]
 public sealed class Tag
 {
     public int Id { get; set; }

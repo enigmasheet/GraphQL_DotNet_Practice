@@ -25,10 +25,4 @@ public static partial class PostQueries
     [GraphQLDeprecated("Use the node(id: ID!) field instead.")]
     public static Task<BlogPost?> GetPostByIdAsync(int id, AppDbContext db, CancellationToken ct) =>
         db.BlogPosts.FirstOrDefaultAsync(p => p.Id == id, ct);
-
-    // Node resolver for the Relay global object identification pattern.
-    [NodeResolver]
-    [GraphQLIgnore]
-    public static Task<BlogPost?> ResolvePostAsync(int id, AppDbContext db, CancellationToken ct) =>
-        db.BlogPosts.FirstOrDefaultAsync(p => p.Id == id, ct);
 }

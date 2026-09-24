@@ -1,6 +1,9 @@
 namespace GraphQLPractice.Api.Models;
 
-[Node]
+[Node(
+    NodeResolverType = typeof(Modules.Comments.CommentNodeResolver),
+    NodeResolver = nameof(Modules.Comments.CommentNodeResolver.GetCommentAsync)
+)]
 public sealed class Comment
 {
     public int Id { get; set; }

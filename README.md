@@ -30,6 +30,8 @@ docs/
   dev-setup.md                        # environment + shared database setup
   graphql-tour.md                     # guided GraphQL feature tour
   query-variations.md                 # cookbook: the same query many ways
+  graphql-practice.postman_collection.json  # importable Postman collection (introspection, paging,
+                                      #   filtering, Node, mutations with id-capture scripts, WS subs)
 src/
   GraphQLPractice.Api/                # Hot Chocolate server + EF Core
     Modules/                          # Authors | Posts | Comments | Tags (modular monolith)
@@ -175,7 +177,7 @@ dotnet run --project src\GraphQLPractice.Api -- schema export
 | Subscriptions + dynamic topics | `Modules/Posts/PostSubscription.cs`, `Modules/Comments/CommentSubscription.cs` |
 | Node resolvers (nested fields) | `Modules/*/*Node.cs` |
 | DataLoaders (batch) | `Modules/Authors/DataLoaders`, `Modules/Posts/DataLoaders` |
-| Global object identification (`Node`, `[NodeResolver]`, `[ID]`) | `Modules/*/*Queries.cs`, `Modules/*/*Mutations.cs` |
+| Global object identification (`Node`, `[Node(...)]`, `[ID]`) | `Modules/*/*NodeResolver.cs`, `Modules/*/*Mutations.cs` |
 | Domain model | `src/GraphQLPractice.Api/Models` |
 | Per-module EF configuration | `Modules/*/*Configuration.cs` (applied by `Data/AppDbContext.cs`) |
 | Seed data | `src/GraphQLPractice.Api/Data/SeedData.cs` |
@@ -183,6 +185,19 @@ dotnet run --project src\GraphQLPractice.Api -- schema export
 | Client operations | `src/GraphQLPractice.Client/GraphQL/*.graphql` |
 | Client pages | `src/GraphQLPractice.Client/Pages/*.razor` |
 | Client wiring (client + transports) | `src/GraphQLPractice.Client/Program.cs` |
+
+## Explore with Postman
+
+Import `docs/graphql-practice.postman_collection.json` (**Import → File**). It runs against
+`http://localhost:5100/graphql` via the `baseUrl` collection variable and is grouped into
+introspection, paging, filtering/sorting, nested resolvers, global object identification (Node),
+mutations, errors/cost, and WebSocket subscriptions.
+
+Run **5. Global object identification → Get IDs** first: its test script captures the opaque global
+ids into the `postId`/`authorId`/`tagId` collection variables, and the mutation requests capture the
+ids they create — so **Update post**, **Delete post**, **Add comment** and **Delete tag** chain without
+copy-paste. Subscriptions use a Postman **WebSocket** request (see that folder's description for the
+`graphql-transport-ws` frames).
 
 ## Common commands
 

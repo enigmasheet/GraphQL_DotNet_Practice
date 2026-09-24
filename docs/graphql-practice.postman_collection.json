@@ -1,0 +1,677 @@
+{
+  "info": {
+    "name": "GraphQL Practice API",
+    "description": "Importable Postman collection for the Hot Chocolate API at http://localhost:5100/graphql.\n\nBefore running:\n1. Start the API:  dotnet run --project src\\GraphQLPractice.Api\n2. Start Postgres:  docker compose up -d  (in _infra\\postgres-master-test)\n\nCollection variables 'postId', 'authorId' and 'tagId' hold sample Relay global IDs (base64 of 'Type:localId'). Run 'Global object identification > Get IDs' to fetch current ones and paste them in, or just use the defaults against a freshly seeded database.\n\nSubscriptions need the WebSocket folder (Postman 'WebSocket' request), not the HTTP folders.\n\nChaining: several requests have test scripts that capture returned global ids into collection variables, so you can run them in order without copy/paste:\n  Get IDs  ->  sets {{postId}}, {{authorId}}, {{tagId}}\n  Create post          ->  sets {{postId}}\n  Create author        ->  sets {{authorId}}\n  Create tag           ->  sets {{tagId}}\n  Add comment          ->  sets {{commentId}}\nUpdate post / Delete post / Add comment / Delete tag read those variables (a pre-request check fails fast if an id is missing). If Postman replaces {{postId}} with a literal instead of a value, run Get IDs (or Create post) once first.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5100" },
+    { "key": "authorId", "value": "QXV0aG9yOjE=" },
+    { "key": "postId", "value": "QmxvZ1Bvc3Q6MQ==" },
+    { "key": "tagId", "value": "VGFnOjE=" },
+    { "key": "commentId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "1. Introspection",
+      "item": [
+        {
+          "name": "Query fields + arguments",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "{\n  __schema {\n    queryType {\n      fields {\n        name\n        args { name type { kind name ofType { kind name } } }\n      }\n    }\n  }\n}",
+                "variables": "{}"
+              }
+            },
+            "url": { "raw": "{{baseUrl}}/graphql", "host": ["{{baseUrl}}"], "path": ["graphql"] },
+            "description": "Every field the client can select on Query, with argument names and types. Note node/nodes and the deprecated authorById/postById."
+          }
+        },
+        {
+          "name": "Node interface + possible types",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "{\n  __type(name: \"Node\") {\n    name\n    kind\n    possibleTypes { name }\n  }\n}",
+                "variables": "{}"
+              }
+            },
+            "url": { "raw": "{{baseUrl}}/graphql", "host": ["{{baseUrl}}"], "path": ["graphql"] },
+            "description": "Global object identification exposes the Node interface; possibleTypes are the entities that implement it."
+          }
+        },
+        {
+          "name": "Deprecation notice",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "{\n  __type(name: \"Query\") {\n    fields { name isDeprecated deprecationReason }\n  }\n}",
+                "variables": "{}"
+              }
+            },
+            "url": { "raw": "{{baseUrl}}/graphql", "host": ["{{baseUrl}}"], "path": ["graphql"] },
+            "description": "authorById/postById report isDeprecated: true and the reason string."
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Connections & paging",
+      "item": [
+        {
+          "name": "First page (totalCount + pageInfo)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "GraphQL-Cost", "value": "report", "type": "text" }],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "query GetPosts($first: Int) {\n  posts(first: $first) {\n    totalCount\n    pageInfo { hasNextPage endCursor }\n    nodes { id title slug status }\n  }\n}",
+                "variables": "{\n  \"first\": 3\n}"
+              }
+            },
+            "url": { "raw": "{{baseUrl}}/graphql", "host": ["{{baseUrl}}"], "path": ["graphql"] },
+            "description": "Relay connection: totalCount, pageInfo and nodes. `first` is required (RequirePagingBoundaries = true). The GraphQL-Cost: report header returns the estimated cost in extensions."
+          }
+        },
+        {
+          "name": "Next page (after cursor)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "query NextPage($first: Int, $after: String) {\n  posts(first: $first, after: $after) {\n    pageInfo { hasNextPage endCursor }\n    nodes { id title }\n  }\n}",
+                "variables": "{\n  \"first\": 3,\n  \"after\": \"PASTE endCursor FROM THE PREVIOUS RESPONSE\"\n}"
+              }
+            },
+            "url": { "raw": "{{baseUrl}}/graphql", "host": ["{{baseUrl}}"], "path": ["graphql"] },
+            "description": "Forward cursor pagination: pass the previous page's pageInfo.endCursor as `after`."
+          }
+        },
+        {
+          "name": "Last page (backward, `last`)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "query LastPosts($last: Int) {\n  posts(last: $last) {\n    pageInfo { hasPreviousPage startCursor }\n    nodes { id title }\n  }\n}",
+                "variables": "{\n  \"last\": 2\n}"
+              }
+            },
+            "url": { "raw": "{{baseUrl}}/graphql", "host": ["{{baseUrl}}"], "path": ["graphql"] },
+            "description": "Backward pagination with `last` instead of `first`."
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Filtering & sorting",
+      "item": [
+        {
+          "name": "Filter by status",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "query ByStatus($where: BlogPostFilterInput) {\n  posts(first: 5, where: $where) {\n    totalCount\n    nodes { title status }\n  }\n}",
+                "variables": "{\n  \"where\": { \"status\": { \"eq\": \"PUBLISHED\" } }\n}"
+              }
+            },
+            "url": { "raw": "{{baseUrl}}/graphql", "host": ["{{baseUrl}}"], "path": ["graphql"] },
+            "description": "Filtering is passed as a typed `where` variable. Enum values are strings."
+          }
+        },
+        {
+          "name": "Filter with OR + contains",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "query Search($where: BlogPostFilterInput) {\n  posts(first: 10, where: $where) {\n    totalCount\n    nodes { title }\n  }\n}",
+                "variables": "{\n  \"where\": {\n    \"or\": [\n      { \"title\": { \"contains\": \"graphql\" } },\n      { \"body\": { \"contains\": \"graphql\" } }\n    ]\n  }\n}"
+              }
+            },
+            "url": { "raw": "{{baseUrl}}/graphql", "host": ["{{baseUrl}}"], "path": ["graphql"] },
+            "description": "Boolean composition: `or`, `and`, `not`, plus string operators (contains, startsWith, eq, in)."
+          }
+        },
+        {
+          "name": "Sort descending",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "query Sorted($order: [BlogPostSortInput!]) {\n  posts(first: 3, order: $order) {\n    nodes { title createdAt }\n  }\n}",
+                "variables": "{\n  \"order\": [ { \"createdAt\": \"DESC\" } ]\n}"
+              }
+            },
+            "url": { "raw": "{{baseUrl}}/graphql", "host": ["{{baseUrl}}"], "path": ["graphql"] },
+            "description": "Sorting is a list, so multiple keys are allowed (e.g. [{status: ASC}, {createdAt: DESC}])."
+          }
+        },
+        {
+          "name": "Filter + sort + page together",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "query Combined($first: Int, $where: BlogPostFilterInput, $order: [BlogPostSortInput!]) {\n  posts(first: $first, where: $where, order: $order) {\n    totalCount\n    nodes { title status createdAt }\n  }\n}",
+                "variables": "{\n  \"first\": 2,\n  \"where\": { \"status\": { \"eq\": \"PUBLISHED\" } },\n  \"order\": [ { \"createdAt\": \"DESC\" } ]\n}"
+              }
+            },
+            "url": { "raw": "{{baseUrl}}/graphql", "host": ["{{baseUrl}}"], "path": ["graphql"] },
+            "description": "The three paging inputs composed; this is the shape the Blazor client sends."
+          }
+        },
+        {
+          "name": "Authors filtered by name",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "query AuthorsByName($where: AuthorFilterInput) {\n  authors(first: 5, where: $where) {\n    totalCount\n    nodes { id name bio }\n  }\n}",
+                "variables": "{\n  \"where\": { \"name\": { \"contains\": \"a\" } }\n}"
+              }
+            },
+            "url": { "raw": "{{baseUrl}}/graphql", "host": ["{{baseUrl}}"], "path": ["graphql"] },
+            "description": "Every connection gets its own generated filter input type (AuthorFilterInput, TagFilterInput, ...)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Nested resolvers & batching",
+      "item": [
+        {
+          "name": "Post with author, tags and comment count",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "query Nested {\n  posts(first: 3) {\n    nodes {\n      title\n      author { name }\n      tags(first: 5) { nodes { name } }\n      comments(first: 1) { totalCount }\n    }\n  }\n}",
+                "variables": "{}"
+              }
+            },
+            "url": { "raw": "{{baseUrl}}/graphql", "host": ["{{baseUrl}}"], "path": ["graphql"] },
+            "description": "Author is a DataLoader (batched into one SQL query); tags/comments are nested connections. Watch the API console to see the single batched author query."
+          }
+        },
+        {
+          "name": "Deep nesting (author > posts > comments > author)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "query Deep {\n  authors(first: 2) {\n    nodes {\n      name\n      posts(first: 2) {\n        nodes {\n          title\n          comments(first: 2) {\n            nodes { text author { name } }\n          }\n        }\n      }\n    }\n  }\n}",
+                "variables": "{}"
+              }
+            },
+            "url": { "raw": "{{baseUrl}}/graphql", "host": ["{{baseUrl}}"], "path": ["graphql"] },
+            "description": "Deeply nested selection. Nested lists use [Parent(requires: nameof(T.Id))] so the join key is always projected."
+          }
+        },
+        {
+          "name": "Projection (only the selected columns)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "query Projection {\n  posts(first: 2) {\n    nodes { title }\n  }\n}",
+                "variables": "{}"
+              }
+            },
+            "url": { "raw": "{{baseUrl}}/graphql", "host": ["{{baseUrl}}"], "path": ["graphql"] },
+            "description": "QueryContext<T> pushes the selection into SQL: only the selected columns are queried (no SELECT *)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Global object identification",
+      "item": [
+        {
+          "name": "Get IDs (paste into variables)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "query GetIds {\n  authors(first: 1) { nodes { id name } }\n  posts(first: 1) { nodes { id title } }\n  tags(first: 1) { nodes { id name } }\n}",
+                "variables": "{}"
+              }
+            },
+            "url": { "raw": "{{baseUrl}}/graphql", "host": ["{{baseUrl}}"], "path": ["graphql"] },
+            "description": "Copy the returned opaque ids into the collection variables postId/authorId/tagId. They are base64 of 'TypeName:localId' (e.g. QmxvZ1Bvc3Q6MQ== = BlogPost:1). The test script does this automatically."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const d = pm.response.json().data;",
+                  "if (d.authors.nodes[0]) pm.collectionVariables.set('authorId', d.authors.nodes[0].id);",
+                  "if (d.posts.nodes[0]) pm.collectionVariables.set('postId', d.posts.nodes[0].id);",
+                  "if (d.tags.nodes[0]) pm.collectionVariables.set('tagId', d.tags.nodes[0].id);",
+                  "pm.test('captured global ids', () => {",
+                  "  pm.expect(pm.collectionVariables.get('postId'), 'postId').to.not.be.empty;",
+                  "  pm.expect(pm.collectionVariables.get('authorId'), 'authorId').to.not.be.empty;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Fetch any node by global id",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "query Node($id: ID!) {\n  node(id: $id) {\n    id\n    ... on BlogPost {\n      title\n      slug\n      author { name }\n      tags(first: 5) { nodes { name } }\n    }\n  }\n}",
+                "variables": "{\n  \"id\": \"{{postId}}\"\n}"
+              }
+            },
+            "url": { "raw": "{{baseUrl}}/graphql", "host": ["{{baseUrl}}"], "path": ["graphql"] },
+            "description": "One field fetches any entity. Inline fragments narrow to the concrete type. Change {{postId}} to {{authorId}} and swap the fragment to ... on Author to fetch an author instead."
+          }
+        },
+        {
+          "name": "Fetch many nodes by global id",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "query Nodes($ids: [ID!]!) {\n  nodes(ids: $ids) {\n    id\n    ... on BlogPost { title }\n    ... on Author { name }\n    ... on Tag { name }\n  }\n}",
+                "variables": "{\n  \"ids\": [ \"{{postId}}\", \"{{authorId}}\", \"{{tagId}}\" ]\n}"
+              }
+            },
+            "url": { "raw": "{{baseUrl}}/graphql", "host": ["{{baseUrl}}"], "path": ["graphql"] },
+            "description": "Batch lookup. Mixed types come back as Node; each item resolves via its inline fragment. Requires the Node type name to match."
+          }
+        },
+        {
+          "name": "Wrong type for node(id:)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "query WrongFragment($id: ID!) {\n  node(id: $id) {\n    id\n    ... on Comment { text }\n  }\n}",
+                "variables": "{\n  \"id\": \"{{postId}}\"\n}"
+              }
+            },
+            "url": { "raw": "{{baseUrl}}/graphql", "host": ["{{baseUrl}}"], "path": ["graphql"] },
+            "description": "Passing a BlogPost id while selecting a Comment fragment: the fragment simply does not match, so only `id` is returned (no error)."
+          }
+        },
+        {
+          "name": "Legacy lookup (deprecated)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "query Legacy {\n  postById(id: 1) { id title }\n}",
+                "variables": "{}"
+              }
+            },
+            "url": { "raw": "{{baseUrl}}/graphql", "host": ["{{baseUrl}}"], "path": ["graphql"] },
+            "description": "authorById/postById still work (local int id) but are deprecated. Also note these fields return a nullable type, so id: 99999 yields null rather than an error."
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Mutations",
+      "item": [
+        {
+          "name": "Create author",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "mutation CreateAuthor($input: CreateAuthorInput!) {\n  createAuthor(input: $input) {\n    author { id name bio }\n  }\n}",
+                "variables": "{\n  \"input\": {\n    \"name\": \"Ada Lovelace\",\n    \"bio\": \"Wrote the first algorithm.\"\n  }\n}"
+              }
+            },
+            "url": { "raw": "{{baseUrl}}/graphql", "host": ["{{baseUrl}}"], "path": ["graphql"] },
+            "description": "Mutation conventions wrap arguments in a single `input` object. The test script stores the new author's global id in {{authorId}}."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const p = pm.response.json().data.createAuthor;",
+                  "pm.test('author created', () => pm.expect(p.author).to.not.be.null);",
+                  "if (p.author) pm.collectionVariables.set('authorId', p.author.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create post (global author + tag ids)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "mutation CreatePost($input: CreatePostInput!) {\n  createPost(input: $input) {\n    blogPost { id title slug status }\n    errors {\n      __typename\n      ... on SlugAlreadyInUseError { message slug }\n      ... on AuthorNotFoundError { message authorId }\n    }\n  }\n}",
+                "variables": "{\n  \"input\": {\n    \"title\": \"Hello from Postman\",\n    \"body\": \"Created with global ids.\",\n    \"authorId\": \"{{authorId}}\",\n    \"status\": \"DRAFT\",\n    \"tagIds\": [ \"{{tagId}}\" ]\n  }\n}"
+              }
+            },
+            "url": { "raw": "{{baseUrl}}/graphql", "host": ["{{baseUrl}}"], "path": ["graphql"] },
+            "description": "authorId/tagIds are `[ID]` inputs, so they take global ids and Hot Chocolate decodes them to local keys. The test script stores blogPost.id in {{postId}} so Update/Delete below chain automatically."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const p = pm.response.json().data.createPost;",
+                  "if (p.errors && p.errors.length) console.log('payload errors:', JSON.stringify(p.errors));",
+                  "pm.test('post created', () => pm.expect(p.blogPost, 'blogPost (check authorId tagIds)').to.not.be.null);",
+                  "if (p.blogPost) pm.collectionVariables.set('postId', p.blogPost.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update post",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "mutation UpdatePost($input: UpdatePostInput!) {\n  updatePost(input: $input) {\n    blogPost { id title slug status }\n    errors {\n      __typename\n      ... on PostNotFoundError { message }\n      ... on SlugAlreadyInUseError { message }\n    }\n  }\n}",
+                "variables": "{\n  \"input\": {\n    \"id\": \"{{postId}}\",\n    \"title\": \"Updated from Postman\"\n  }\n}"
+              }
+            },
+            "url": { "raw": "{{baseUrl}}/graphql", "host": ["{{baseUrl}}"], "path": ["graphql"] },
+            "description": "Partial update: only the supplied fields change. Changing the title re-derives the slug. Uses {{postId}} captured by Create post."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('{{postId}} is set (run Create post first)', () => pm.expect(pm.collectionVariables.get('postId'), 'postId').to.not.be.empty);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const p = pm.response.json().data.updatePost;",
+                  "pm.test('post updated', () => pm.expect(p.blogPost).to.not.be.null);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete post",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "mutation DeletePost($input: DeletePostInput!) {\n  deletePost(input: $input) {\n    blogPost { id title }\n    errors { __typename ... on PostNotFoundError { message } }\n  }\n}",
+                "variables": "{\n  \"input\": { \"id\": \"{{postId}}\" }\n}"
+              }
+            },
+            "url": { "raw": "{{baseUrl}}/graphql", "host": ["{{baseUrl}}"], "path": ["graphql"] },
+            "description": "Returns the deleted post. Missing ids surface as a typed PostNotFoundError, not a GraphQL field error. Uses {{postId}}."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const p = pm.response.json().data.deletePost;",
+                  "pm.test('post deleted', () => pm.expect(p.blogPost, 'blogPost (postId already deleted?)').to.not.be.null);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Add comment",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "mutation AddComment($input: AddCommentInput!) {\n  addComment(input: $input) {\n    comment { id text createdAt author { name } }\n    errors {\n      __typename\n      ... on PostNotFoundError { message }\n      ... on AuthorNotFoundError { message }\n    }\n  }\n}",
+                "variables": "{\n  \"input\": {\n    \"postId\": \"{{postId}}\",\n    \"authorId\": \"{{authorId}}\",\n    \"text\": \"Nice post!\"\n  }\n}"
+              }
+            },
+            "url": { "raw": "{{baseUrl}}/graphql", "host": ["{{baseUrl}}"], "path": ["graphql"] },
+            "description": "postId/authorId are global [ID] inputs. Also publishes to the dynamic topic OnCommentAdded_{postId} for subscribers. The test script stores the new comment's id in {{commentId}}."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('postId + authorId are set', () => {",
+                  "  pm.expect(pm.collectionVariables.get('postId'), 'postId').to.not.be.empty;",
+                  "  pm.expect(pm.collectionVariables.get('authorId'), 'authorId').to.not.be.empty;",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const p = pm.response.json().data.addComment;",
+                  "pm.test('comment added', () => pm.expect(p.comment).to.not.be.null);",
+                  "if (p.comment) pm.collectionVariables.set('commentId', p.comment.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create tag",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "mutation CreateTag($input: CreateTagInput!) {\n  createTag(input: $input) {\n    tag { id name }\n    errors { __typename ... on SlugAlreadyInUseError { message } }\n  }\n}",
+                "variables": "{\n  \"input\": { \"name\": \"postman\" }\n}"
+              }
+            },
+            "url": { "raw": "{{baseUrl}}/graphql", "host": ["{{baseUrl}}"], "path": ["graphql"] },
+            "description": "Run twice: the second run reports the typed SlugAlreadyInUseError in the payload. The test script stores the new tag id in {{tagId}} on success."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const p = pm.response.json().data.createTag;",
+                  "if (p.errors && p.errors.length) {",
+                  "  pm.test('duplicate is a typed error', () => pm.expect(p.errors[0].__typename).to.eql('SlugAlreadyInUseError'));",
+                  "} else {",
+                  "  pm.test('tag created', () => pm.expect(p.tag).to.not.be.null);",
+                  "  if (p.tag) pm.collectionVariables.set('tagId', p.tag.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete tag",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "mutation DeleteTag($input: DeleteTagInput!) {\n  deleteTag(input: $input) {\n    tag { id name }\n    errors { __typename ... on TagNotFoundError { message } }\n  }\n}",
+                "variables": "{\n  \"input\": { \"id\": \"{{tagId}}\" }\n}"
+              }
+            },
+            "url": { "raw": "{{baseUrl}}/graphql", "host": ["{{baseUrl}}"], "path": ["graphql"] },
+            "description": "deleteTag takes a global [ID] input. Uses {{tagId}}."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const p = pm.response.json().data.deleteTag;",
+                  "pm.test('tag deleted', () => pm.expect(p.tag, 'tag (tagId already deleted?)').to.not.be.null);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "7. Errors & cost",
+      "item": [
+        {
+          "name": "Missing paging boundary (HC0082)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "query NoFirst {\n  posts { nodes { id } }\n}",
+                "variables": "{}"
+              }
+            },
+            "url": { "raw": "{{baseUrl}}/graphql", "host": ["{{baseUrl}}"], "path": ["graphql"] },
+            "description": "Errors because RequirePagingBoundaries = true: every connection needs first or last. Response is 200 with errors[].extensions.code = HC0082."
+          }
+        },
+        {
+          "name": "Unknown field (validation error)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "query Bad {\n  posts(first: 1) { nodes { nope } }\n}",
+                "variables": "{}"
+              }
+            },
+            "url": { "raw": "{{baseUrl}}/graphql", "host": ["{{baseUrl}}"], "path": ["graphql"] },
+            "description": "Schema validation failure: HTTP 400 with errors[].extensions.code = HC0012 (no path, since no execution happened)."
+          }
+        },
+        {
+          "name": "Malformed JSON (400)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json", "type": "text" }],
+            "body": { "mode": "raw", "raw": "{ this is not json" },
+            "url": { "raw": "{{baseUrl}}/graphql", "host": ["{{baseUrl}}"], "path": ["graphql"] },
+            "description": "Transport-level 400. Contrast with the 200 + errors[] responses above."
+          }
+        },
+        {
+          "name": "Cost report (GraphQL-Cost: report header)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "GraphQL-Cost", "value": "report", "type": "text" }],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "query CostReport {\n  posts(first: 10) {\n    nodes {\n      title\n      author { name }\n      comments(first: 10) { totalCount nodes { text author { name } } }\n    }\n  }\n}",
+                "variables": "{}"
+              }
+            },
+            "url": { "raw": "{{baseUrl}}/graphql", "host": ["{{baseUrl}}"], "path": ["graphql"] },
+            "description": "Returns extensions.cost with the estimated field/type cost instead of throwing. Cost multiplies across nested lists, so a large nested query can trip HC0047 (MaxFieldCost/MaxTypeCost = 10,000 here)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "8. Subscriptions (WebSocket)",
+      "item": [
+        {
+          "name": "onPostPublished / onCommentAdded (graphql-transport-ws)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "ws://localhost:5100/graphql",
+              "protocol": "ws",
+              "host": ["localhost"],
+              "port": "5100",
+              "path": ["graphql"]
+            },
+            "description": "Open this as a Postman 'WebSocket' request (not HTTP), connect, then send graphql-transport-ws frames.\n\n1) Init:\n{\"type\":\"connection_init\",\"payload\":{}}\n\n2) Wait for {\"type\":\"connection_ack\"}, then subscribe:\n{\"id\":\"1\",\"type\":\"subscribe\",\"payload\":{\"query\":\"subscription { onPostPublished { id title slug status author { name } } }\"}}\n\n3) In another tab, run '6. Mutations > Create post' with status PUBLISHED. The event arrives as {\"id\":\"1\",\"type\":\"next\",\"payload\":{...}}.\n\nPer-post comments (dynamic topic):\n{\"id\":\"2\",\"type\":\"subscribe\",\"payload\":{\"query\":\"subscription($postId: Int!) { onCommentAdded(postId: $postId) { id text author { name } } }\",\"variables\":{\"postId\": 1}}}"
+          }
+        }
+      ]
+    }
+  ]
+}

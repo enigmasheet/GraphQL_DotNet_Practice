@@ -494,9 +494,19 @@ That value is just `base64("BlogPost:1")`. You never construct it by hand; you p
 { nodes(ids: ["QmxvZ1Bvc3Q6MQ==", "QXV0aG9yOjE="]) { ... on BlogPost { title } ... on Author { name } } }
 ```
 
-Each module supplies a `[NodeResolver]` method — e.g. `ResolvePostAsync` in
-`Modules/Posts/PostQueries.cs` — which Hot Chocolate dispatches to based on the type encoded in the id.
-The methods are marked `[GraphQLIgnore]` so they are *not* exposed as extra `Query` fields.
+Each module supplies a node resolver — e.g. `PostNodeResolver.GetPostAsync` in
+`Modules/Posts/PostNodeResolver.cs` — which Hot Chocolate dispatches to based on the type encoded in
+the id. A node resolver must live in a class that is **not** a `[QueryType]`; if it were, the method
+would also be exposed as an extra `Query` field (and `[GraphQLIgnore]` would stop it being registered
+as a node resolver at all). The model points at it explicitly:
+
+```csharp
+[Node(
+    NodeResolverType = typeof(Modules.Posts.PostNodeResolver),
+    NodeResolver = nameof(Modules.Posts.PostNodeResolver.GetPostAsync)
+)]
+public sealed class BlogPost { … }
+```
 
 **3. Inputs take global ids.** With global object identification on, the `[ID]` attribute on a
 parameter both marks it as `ID` *and* deserializes it back to the underlying key:

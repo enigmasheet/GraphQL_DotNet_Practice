@@ -286,3 +286,4 @@ plumbing.
 
 - Cost and limits: [graphql-tour.md §10](graphql-tour.md#10-debugging) (`HC0047`, `HC0082`, `GraphQL-Cost`).
 - Fetching any object by a global id: [graphql-tour.md §15](graphql-tour.md#15-global-object-identification-relay-node).
+- Ready-made examples: import `docs/graphql-practice.postman_collection.json` into Postman.

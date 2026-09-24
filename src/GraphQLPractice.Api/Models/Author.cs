@@ -1,6 +1,9 @@
 namespace GraphQLPractice.Api.Models;
 
-[Node]
+[Node(
+    NodeResolverType = typeof(Modules.Authors.AuthorNodeResolver),
+    NodeResolver = nameof(Modules.Authors.AuthorNodeResolver.GetAuthorAsync)
+)]
 public sealed class Author
 {
     public int Id { get; set; }

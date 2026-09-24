@@ -1,6 +1,9 @@
 namespace GraphQLPractice.Api.Models;
 
-[Node]
+[Node(
+    NodeResolverType = typeof(Modules.Posts.PostNodeResolver),
+    NodeResolver = nameof(Modules.Posts.PostNodeResolver.GetPostAsync)
+)]
 public sealed class BlogPost
 {
     public int Id { get; set; }
