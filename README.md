@@ -13,7 +13,9 @@ A small fullstack GraphQL playground for learning how GraphQL works end to end:
 
 The domain is a tiny blog: **Author → BlogPost → Comment**, with **Tag** a many-to-many on posts.
 
-> New to the project? Read **[docs/dev-setup.md](docs/dev-setup.md)** first, then work through
+> **New to the project?** Start with the **[study series](blog/README.md)** — ten blog-style posts that
+> walk through the whole thing in order, each with runnable examples. For terse reference material, read
+> **[docs/dev-setup.md](docs/dev-setup.md)** first, then
 > **[docs/graphql-tour.md](docs/graphql-tour.md)** and the
 > **[query variations cookbook](docs/query-variations.md)**.
 
@@ -26,6 +28,8 @@ Directory.Packages.props              # Central Package Management (all versions
 stylecop.json                         # StyleCop.Analyzers settings
 .editorconfig                         # editor settings + analyzer severities
 dotnet-tools.json                     # local tools: dotnet-ef, Strawberry Shake CLI
+blog/                                 # blog-style study series (start at blog/README.md)
+  00-local-setup.md … 09-debugging-and-cost.md
 docs/
   dev-setup.md                        # environment + shared database setup
   graphql-tour.md                     # guided GraphQL feature tour
