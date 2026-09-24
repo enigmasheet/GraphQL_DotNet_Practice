@@ -5,6 +5,8 @@ A small fullstack GraphQL playground for learning how GraphQL works end to end:
 | Layer | Technology |
 |---|---|
 | GraphQL server | [Hot Chocolate](https://chillicream.com/docs/hotchocolate) 16 (code-first) |
+| REST API | ASP.NET Core Minimal APIs, one endpoint group per module, documented with OpenAPI + [Scalar](https://scalar.com) |
+| Architecture | Modular monolith — feature modules under `Modules/{Authors,Posts,Comments,Tags}` |
 | Database | PostgreSQL 18 in a shared Docker instance, via EF Core 10 + Npgsql |
 | Client | Blazor WebAssembly (.NET 10) with [Strawberry Shake](https://chillicream.com/docs/strawberryshake) |
 | Code style | [StyleCop.Analyzers](https://github.com/DotNetAnalyzers/StyleCopAnalyzers) + `.editorconfig` (build stays warning-free) |
@@ -13,7 +15,8 @@ A small fullstack GraphQL playground for learning how GraphQL works end to end:
 The domain is a tiny blog: **Author → BlogPost → Comment**, with **Tag** a many-to-many on posts.
 
 > New to the project? Read **[docs/dev-setup.md](docs/dev-setup.md)** first, then work through
-> **[docs/graphql-tour.md](docs/graphql-tour.md)**.
+> **[docs/graphql-tour.md](docs/graphql-tour.md)** and the
+> **[query variations cookbook](docs/query-variations.md)**.
 
 ## Repository layout
 
@@ -27,8 +30,10 @@ dotnet-tools.json                     # local tools: dotnet-ef, Strawberry Shake
 docs/
   dev-setup.md                        # environment + shared database setup
   graphql-tour.md                     # guided GraphQL feature tour
+  query-variations.md                 # cookbook: the same query many ways
 src/
-  GraphQLPractice.Api/                # Hot Chocolate server + EF Core
+  GraphQLPractice.Api/                # Hot Chocolate server + Minimal APIs + EF Core
+    Modules/                          # Authors | Posts | Comments | Tags (modular monolith)
   GraphQLPractice.Client/             # Blazor WASM + Strawberry Shake client
 ```
 
@@ -69,8 +74,10 @@ The API also serves:
 - `http://localhost:5100/graphql` — GraphQL endpoint **and** the Nitro IDE when opened in a browser
 - `http://localhost:5100/graphql/ui` — the IDE on its own path
 - `http://localhost:5100/graphql/schema` — the schema SDL
+- `http://localhost:5100/scalar` — Swagger-style UI for the **REST** endpoints (`/api/...`)
+- `http://localhost:5100/openapi/v1.json` — the OpenAPI document
 
-You can skip step 5 entirely and explore the API in Nitro.
+You can skip step 5 entirely and explore the API in Nitro or Scalar.
 
 ## Ports
 
@@ -85,13 +92,38 @@ local Postgres often occupies `5432`; see [docs/dev-setup.md](docs/dev-setup.md)
 
 ## The GraphQL schema at a glance
 
+Every list is a Relay connection built with `[UseConnection]`, and `RequirePagingBoundaries` is on —
+so every paged field takes `first` (or `last`), plus optional `where`/`order`.
+
 ```graphql
 type Query {
-  authors(first: Int, after: String, where: AuthorFilterInput, order: [AuthorSortInput!]): AuthorsConnection
-  posts(first: Int, after: String, where: BlogPostFilterInput, order: [BlogPostSortInput!]): PostsConnection
+  authors(first: Int, after: String, where: AuthorFilterInput, order: [AuthorSortInput!]): AuthorConnection
+  posts(first: Int, after: String, where: BlogPostFilterInput, order: [BlogPostSortInput!]): BlogPostConnection
   authorById(id: Int!): Author
   postById(id: Int!): BlogPost
-  tags: [Tag!]!
+  tags(first: Int, after: String, where: TagFilterInput, order: [TagSortInput!]): TagConnection
+}
+
+type Author {
+  id: Int!
+  name: String!
+  bio: String
+  createdAt: DateTime!
+  posts(first: Int, after: String, where: BlogPostFilterInput, order: [BlogPostSortInput!]): BlogPostConnection!
+}
+
+type BlogPost {
+  id: Int!
+  title: String!
+  slug: String!
+  body: String!
+  status: PostStatus!
+  createdAt: DateTime!
+  publishedAt: DateTime
+  authorId: Int!
+  author: Author!
+  comments(first: Int, after: String, where: CommentFilterInput, order: [CommentSortInput!]): CommentConnection!
+  tags(first: Int, after: String, where: TagFilterInput, order: [TagSortInput!]): TagConnection!
 }
 
 type Mutation {
@@ -118,14 +150,17 @@ dotnet run --project src\GraphQLPractice.Api -- schema export
 
 | Concept | Where to look |
 |---|---|
-| Query root, paging/filtering/sorting/projection | `src/GraphQLPractice.Api/GraphQL/Query.cs` |
-| Mutations + typed errors (`[Error(typeof(...))]`) | `src/GraphQLPractice.Api/GraphQL/Mutation.cs` |
-| Subscriptions + dynamic topics | `src/GraphQLPractice.Api/GraphQL/Subscription.cs` |
-| Node resolvers (nested fields) | `src/GraphQLPractice.Api/GraphQL/Types/*.cs` |
-| DataLoaders (batch + group) | `src/GraphQLPractice.Api/GraphQL/DataLoaders/*.cs` |
-| Domain model + EF mapping | `src/GraphQLPractice.Api/Models`, `Data/AppDbContext.cs` |
+| Module pattern (`IModule`, registration, endpoints) | `src/GraphQLPractice.Api/Modules/IModule.cs`, `ModuleRegistry.cs` |
+| Query root + connections, filtering/sorting/projection | `src/GraphQLPractice.Api/Modules/{Posts,Authors,Tags}/*Queries.cs` |
+| Mutations + typed errors (`[Error(typeof(...))]`) | `src/GraphQLPractice.Api/Modules/{Authors,Posts,Comments,Tags}/*Mutations.cs` |
+| Subscriptions + dynamic topics | `Modules/Posts/PostSubscription.cs`, `Modules/Comments/CommentSubscription.cs` |
+| Node resolvers (nested fields) | `Modules/*/*Node.cs` |
+| DataLoaders (batch) | `Modules/Authors/DataLoaders`, `Modules/Posts/DataLoaders` |
+| REST (Minimal API) endpoints + DTOs | `Modules/*/*Endpoints.cs` |
+| Domain model | `src/GraphQLPractice.Api/Models` |
+| Per-module EF configuration | `Modules/*/*Configuration.cs` (applied by `Data/AppDbContext.cs`) |
 | Seed data | `src/GraphQLPractice.Api/Data/SeedData.cs` |
-| Server wiring (DI, CORS, subscriptions) | `src/GraphQLPractice.Api/Program.cs` |
+| Server wiring (modules, GraphQL, OpenAPI/Scalar, CORS) | `src/GraphQLPractice.Api/Program.cs` |
 | Client operations | `src/GraphQLPractice.Client/GraphQL/*.graphql` |
 | Client pages | `src/GraphQLPractice.Client/Pages/*.razor` |
 | Client wiring (client + transports) | `src/GraphQLPractice.Client/Program.cs` |
@@ -164,17 +199,19 @@ dotnet graphql generate -p src\GraphQLPractice.Client # regenerate the typed cli
 | Variables look ignored / filter returns nothing | Omitting a variable is not the same as sending `null`; `eq: null` matches nothing. Also check types (`Int` vs `String`, enums as `"PUBLISHED"`). See [docs/graphql-tour.md](docs/graphql-tour.md#2-variables). |
 | A query returns `null` where you expected an error | Missing objects are `null`, not errors (e.g. `postById(id: 99999)`). Domain errors only appear on mutation payloads. See [docs/graphql-tour.md](docs/graphql-tour.md#10-debugging). |
 | Can't tell why a request failed | `400` = bad request (no `path`); `200` + `errors[].path` = field error. Read `extensions.code` (e.g. `HC0012`, `HC0051`). See [docs/graphql-tour.md](docs/graphql-tour.md#10-debugging). |
+| `HC0082: Exactly one slicing argument must be defined` | Every paged field requires `first` (or `last`). Add it — e.g. `posts(first: 10)`. |
+| `HC0047: The maximum allowed field cost was exceeded` | The operation is too expensive (cost multiplies across nested lists). Bound it with smaller `first`, select less, or raise `ModifyCostOptions(o => o.MaxFieldCost)`. Measure with the `GraphQL-Cost: report` header — see [docs/graphql-tour.md](docs/graphql-tour.md#cost-analysis-hc0047). |
 | Client debug profile looks stale | Delete `src\GraphQLPractice.Client\GraphQLPractice.Client.csproj.user` (it pins an old `https` profile). It is git-ignored. |
 
 ## A note on "Scalar" vs "scalar"
 
-[Scalar](https://scalar.com) is an API reference UI for **OpenAPI/AsyncAPI** documents — it cannot
-render a GraphQL schema. The GraphQL equivalent of Swagger UI is **Nitro**, which Hot Chocolate
-serves at `/graphql`. Separately, a GraphQL **scalar** is a leaf type (`String`, `Int`, `DateTime`,
-or a custom one); those are configured in code, not in the UI. See
+[Scalar](https://scalar.com) is an API reference UI for **OpenAPI/AsyncAPI** documents — it renders the
+**REST** endpoints here, at `/scalar`. It cannot render a GraphQL schema; the GraphQL equivalent of
+Swagger UI is **Nitro**, served at `/graphql`. Separately, a GraphQL **scalar** is a leaf type
+(`String`, `Int`, `DateTime`, or a custom one); those are configured in code, not in the UI. See
 [docs/graphql-tour.md](docs/graphql-tour.md#12-scalars).
 
 ## Deliberately out of scope
 
-Auth/authorization, persisted queries, cost analysis, schema stitching/Fusion, NodaTime scalars,
-tests, and CI. Each is a natural next step; see the Hot Chocolate docs for guidance.
+Auth/authorization, persisted queries, schema stitching/Fusion, NodaTime scalars, tests, and CI. Each
+is a natural next step; see the Hot Chocolate docs for guidance.

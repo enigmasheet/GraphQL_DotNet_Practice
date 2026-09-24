@@ -6,10 +6,13 @@ query GetAuthors {
       name
       bio
       createdAt
-      posts {
-        id
-        title
-        status
+      posts(first: 20) {
+        totalCount
+        nodes {
+          id
+          title
+          status
+        }
       }
     }
   }

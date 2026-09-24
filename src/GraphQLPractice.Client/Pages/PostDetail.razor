@@ -24,7 +24,7 @@ else
         @post.CreatedAt.LocalDateTime
     </p>
     <p>@post.Body</p>
-    <p>Tags: @string.Join(", ", post.Tags.Select(t => t.Name))</p>
+    <p>Tags: @string.Join(", ", post.Tags.Nodes!.Select(t => t.Name))</p>
 
     <h3 class="mt-4">Comments (@comments.Count)</h3>
     @if (comments.Count == 0)
@@ -107,7 +107,7 @@ else
         post = postResult.Data?.PostById;
         if (post is not null)
         {
-            AddComments(post.Comments.Select(c => new CommentView(c.Id, c.Text, c.Author.Name, c.CreatedAt)));
+            AddComments(post.Comments.Nodes!.Select(c => new CommentView(c.Id, c.Text, c.Author.Name, c.CreatedAt)));
         }
 
         var authorsResult = await Client.GetAuthors.ExecuteAsync();

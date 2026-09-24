@@ -11,7 +11,7 @@ namespace GraphQLPractice.Api.Modules.Posts;
 public static partial class PostNode
 {
     public static async Task<Author> GetAuthorAsync(
-        [Parent] BlogPost post,
+        [Parent(requires: nameof(BlogPost.AuthorId))] BlogPost post,
         IAuthorByIdDataLoader authorById,
         CancellationToken ct
     ) => await authorById.LoadRequiredAsync(post.AuthorId, ct);
@@ -28,7 +28,7 @@ public static partial class PostNode
     ) =>
         await db
             .Comments.Where(c => c.BlogPostId == post.Id)
-            .With(query)
+            .With(query, sort => sort.IfEmpty(s => s.AddAscending(c => c.Id)))
             .ToPageAsync(pagingArgs, ct);
 
     [UseConnection(IncludeTotalCount = true, MaxPageSize = 20)]
@@ -43,6 +43,6 @@ public static partial class PostNode
     ) =>
         await db
             .Tags.Where(t => t.Posts.Any(p => p.Id == post.Id))
-            .With(query)
+            .With(query, sort => sort.IfEmpty(s => s.AddAscending(t => t.Id)))
             .ToPageAsync(pagingArgs, ct);
 }

@@ -21,6 +21,6 @@ public static partial class AuthorNode
     ) =>
         await db
             .BlogPosts.Where(p => p.AuthorId == author.Id)
-            .With(query)
+            .With(query, sort => sort.IfEmpty(s => s.AddAscending(p => p.Id)))
             .ToPageAsync(pagingArgs, ct);
 }

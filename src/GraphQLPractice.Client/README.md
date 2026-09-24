@@ -40,6 +40,16 @@ Build once and Strawberry Shake generates (into `obj/`):
 - Razor components (`UseGetPosts`, `UseGetAuthors`, `UseOnCommentAdded`, …).
 - The `AddBlogClient()` DI extension.
 
+> **Every list on the server is a connection**, so operations page nested collections explicitly:
+> `comments(first: 50) { totalCount nodes { … } }`, `tags(first: 10) { nodes { … } }`. If the server
+> schema changes, re-pull it (see *Regenerating* below) so the generated `Nodes`/`TotalCount` members
+> line up — otherwise the build fails with missing members.
+
+The result types expose the connection shape: `result.Data.Posts.Nodes`, `.TotalCount`, `.PageInfo`.
+
+The same data is also available over REST (`/api/posts`, …) with an OpenAPI UI at
+`http://localhost:5100/scalar`.
+
 Two usage styles appear in `Pages/`:
 
 - **Declarative** (`Authors.razor`) — the generated component handles loading/error:

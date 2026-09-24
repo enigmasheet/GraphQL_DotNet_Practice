@@ -55,8 +55,8 @@ else
                     <td><a href="@($"posts/{post.Id}")">@post.Title</a></td>
                     <td>@post.Author.Name</td>
                     <td>@post.Status</td>
-                    <td>@string.Join(", ", post.Tags.Select(t => t.Name))</td>
-                    <td>@post.Comments.Count</td>
+                    <td>@string.Join(", ", post.Tags.Nodes!.Select(t => t.Name))</td>
+                    <td>@post.Comments.TotalCount</td>
                 </tr>
             }
         </tbody>

@@ -16,5 +16,8 @@ public static partial class TagQueries
         QueryContext<Tag> query,
         AppDbContext db,
         CancellationToken ct
-    ) => await db.Tags.With(query).ToPageAsync(pagingArgs, ct);
+    ) =>
+        await db
+            .Tags.With(query, sort => sort.IfEmpty(s => s.AddAscending(t => t.Id)))
+            .ToPageAsync(pagingArgs, ct);
 }

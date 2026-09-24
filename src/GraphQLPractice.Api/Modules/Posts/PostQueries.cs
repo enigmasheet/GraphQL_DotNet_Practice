@@ -17,7 +17,10 @@ public static partial class PostQueries
         QueryContext<BlogPost> query,
         AppDbContext db,
         CancellationToken ct
-    ) => await db.BlogPosts.With(query).ToPageAsync(pagingArgs, ct);
+    ) =>
+        await db
+            .BlogPosts.With(query, sort => sort.IfEmpty(s => s.AddAscending(p => p.Id)))
+            .ToPageAsync(pagingArgs, ct);
 
     public static Task<BlogPost?> GetPostByIdAsync(int id, AppDbContext db, CancellationToken ct) =>
         db.BlogPosts.FirstOrDefaultAsync(p => p.Id == id, ct);

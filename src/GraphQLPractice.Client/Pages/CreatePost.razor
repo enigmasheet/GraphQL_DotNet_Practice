@@ -60,7 +60,7 @@
 
 @code {
     private readonly List<IGetAuthors_Authors_Nodes> authors = [];
-    private readonly List<IGetTags_Tags> tags = [];
+    private readonly List<IGetTags_Tags_Nodes> tags = [];
     private readonly HashSet<int> selectedTagIds = [];
 
     private string title = string.Empty;
@@ -80,7 +80,7 @@
         }
 
         var tagsResult = await Client.GetTags.ExecuteAsync();
-        if (tagsResult.Data?.Tags is { } tagList)
+        if (tagsResult.Data?.Tags?.Nodes is { } tagList)
         {
             tags.AddRange(tagList);
         }

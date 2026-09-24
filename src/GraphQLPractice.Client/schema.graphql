@@ -4,6 +4,82 @@ schema {
   subscription: Subscription
 }
 
+"A connection to a list of items."
+type AuthorConnection {
+  "A list of edges."
+  edges: [AuthorEdge!]
+  "A flattened list of the nodes"
+  nodes: [Author!]
+  "Information to aid in pagination."
+  pageInfo: PageInfo!
+  "Identifies the total count of items in the connection."
+  totalCount: Int!
+}
+
+"A connection to a list of items."
+type BlogPostConnection {
+  "A list of edges."
+  edges: [BlogPostEdge!]
+  "A flattened list of the nodes"
+  nodes: [BlogPost!]
+  "Information to aid in pagination."
+  pageInfo: PageInfo!
+  "Identifies the total count of items in the connection."
+  totalCount: Int!
+}
+
+"A connection to a list of items."
+type CommentConnection {
+  "A list of edges."
+  edges: [CommentEdge!]
+  "A flattened list of the nodes"
+  nodes: [Comment!]
+  "Information to aid in pagination."
+  pageInfo: PageInfo!
+  "Identifies the total count of items in the connection."
+  totalCount: Int!
+}
+
+"A connection to a list of items."
+type TagConnection {
+  "A list of edges."
+  edges: [TagEdge!]
+  "A flattened list of the nodes"
+  nodes: [Tag!]
+  "Information to aid in pagination."
+  pageInfo: PageInfo!
+  "Identifies the total count of items in the connection."
+  totalCount: Int!
+}
+
+type AuthorEdge {
+  "The item at the end of the edge."
+  node: Author!
+  "A cursor for use in pagination."
+  cursor: String!
+}
+
+type BlogPostEdge {
+  "The item at the end of the edge."
+  node: BlogPost!
+  "A cursor for use in pagination."
+  cursor: String!
+}
+
+type CommentEdge {
+  "The item at the end of the edge."
+  node: Comment!
+  "A cursor for use in pagination."
+  cursor: String!
+}
+
+type TagEdge {
+  "The item at the end of the edge."
+  node: Tag!
+  "A cursor for use in pagination."
+  cursor: String!
+}
+
 type Query {
   authors(
     "Returns the first _n_ elements from the list."
@@ -16,7 +92,8 @@ type Query {
     before: String
     where: AuthorFilterInput
     order: [AuthorSortInput!]
-  ): AuthorsConnection
+  ): AuthorConnection!
+  authorById(id: Int!): Author
   posts(
     "Returns the first _n_ elements from the list."
     first: Int
@@ -28,45 +105,54 @@ type Query {
     before: String
     where: BlogPostFilterInput
     order: [BlogPostSortInput!]
-  ): PostsConnection
-  authorById(id: Int!): Author
+  ): BlogPostConnection!
   postById(id: Int!): BlogPost
-  tags: [Tag!]!
+  tags(
+    "Returns the first _n_ elements from the list."
+    first: Int
+    "Returns the elements in the list that come after the specified cursor."
+    after: String
+    "Returns the last _n_ elements from the list."
+    last: Int
+    "Returns the elements in the list that come before the specified cursor."
+    before: String
+    where: TagFilterInput
+    order: [TagSortInput!]
+  ): TagConnection!
 }
 
 type Mutation {
   createAuthor(input: CreateAuthorInput!): CreateAuthorPayload!
+  addComment(input: AddCommentInput!): AddCommentPayload!
   createPost(input: CreatePostInput!): CreatePostPayload!
   updatePost(input: UpdatePostInput!): UpdatePostPayload!
   deletePost(input: DeletePostInput!): DeletePostPayload!
-  addComment(input: AddCommentInput!): AddCommentPayload!
+  createTag(input: CreateTagInput!): CreateTagPayload!
+  deleteTag(input: DeleteTagInput!): DeleteTagPayload!
 }
 
 type Subscription {
-  onPostPublished: BlogPost!
   onCommentAdded(postId: Int!): Comment!
+  onPostPublished: BlogPost!
 }
 
 type Author {
-  posts: [BlogPost!]!
+  posts(
+    "Returns the first _n_ elements from the list."
+    first: Int
+    "Returns the elements in the list that come after the specified cursor."
+    after: String
+    "Returns the last _n_ elements from the list."
+    last: Int
+    "Returns the elements in the list that come before the specified cursor."
+    before: String
+    where: BlogPostFilterInput
+    order: [BlogPostSortInput!]
+  ): BlogPostConnection!
   id: Int!
   name: String!
   bio: String
   createdAt: DateTime!
-}
-
-type BlogPost {
-  author: Author!
-  comments: [Comment!]!
-  tags: [Tag!]!
-  id: Int!
-  title: String!
-  slug: String!
-  body: String!
-  status: PostStatus!
-  createdAt: DateTime!
-  publishedAt: DateTime
-  authorId: Int!
 }
 
 type Comment {
@@ -76,6 +162,42 @@ type Comment {
   text: String!
   createdAt: DateTime!
   blogPostId: Int!
+  authorId: Int!
+}
+
+type BlogPost {
+  author: Author!
+  comments(
+    "Returns the first _n_ elements from the list."
+    first: Int
+    "Returns the elements in the list that come after the specified cursor."
+    after: String
+    "Returns the last _n_ elements from the list."
+    last: Int
+    "Returns the elements in the list that come before the specified cursor."
+    before: String
+    where: CommentFilterInput
+    order: [CommentSortInput!]
+  ): CommentConnection!
+  tags(
+    "Returns the first _n_ elements from the list."
+    first: Int
+    "Returns the elements in the list that come after the specified cursor."
+    after: String
+    "Returns the last _n_ elements from the list."
+    last: Int
+    "Returns the elements in the list that come before the specified cursor."
+    before: String
+    where: TagFilterInput
+    order: [TagSortInput!]
+  ): TagConnection!
+  id: Int!
+  title: String!
+  slug: String!
+  body: String!
+  status: PostStatus!
+  createdAt: DateTime!
+  publishedAt: DateTime
   authorId: Int!
 }
 
@@ -119,28 +241,16 @@ input BlogPostSortInput {
   authorId: SortEnumType
 }
 
-"A connection to a list of items."
-type AuthorsConnection {
-  "Information to aid in pagination."
-  pageInfo: PageInfo!
-  "A list of edges."
-  edges: [AuthorsEdge!]
-  "A flattened list of the nodes."
-  nodes: [Author!]
-  "Identifies the total count of items in the connection."
-  totalCount: Int!
+input TagFilterInput {
+  and: [TagFilterInput!]
+  or: [TagFilterInput!]
+  id: IntOperationFilterInput
+  name: StringOperationFilterInput
 }
 
-"A connection to a list of items."
-type PostsConnection {
-  "Information to aid in pagination."
-  pageInfo: PageInfo!
-  "A list of edges."
-  edges: [PostsEdge!]
-  "A flattened list of the nodes."
-  nodes: [BlogPost!]
-  "Identifies the total count of items in the connection."
-  totalCount: Int!
+input TagSortInput {
+  id: SortEnumType
+  name: SortEnumType
 }
 
 type AuthorNotFoundError implements Error {
@@ -148,14 +258,37 @@ type AuthorNotFoundError implements Error {
   authorId: Int!
 }
 
+type PostNotFoundError implements Error {
+  message: String!
+  postId: Int!
+}
+
 type SlugAlreadyInUseError implements Error {
   message: String!
   slug: String!
 }
 
-type PostNotFoundError implements Error {
+type TagNotFoundError implements Error {
   message: String!
-  postId: Int!
+  tagId: Int!
+}
+
+input CommentFilterInput {
+  and: [CommentFilterInput!]
+  or: [CommentFilterInput!]
+  id: IntOperationFilterInput
+  text: StringOperationFilterInput
+  createdAt: DateTimeOperationFilterInput
+  blogPostId: IntOperationFilterInput
+  authorId: IntOperationFilterInput
+}
+
+input CommentSortInput {
+  id: SortEnumType
+  text: SortEnumType
+  createdAt: SortEnumType
+  blogPostId: SortEnumType
+  authorId: SortEnumType
 }
 
 input IntOperationFilterInput {
@@ -215,6 +348,13 @@ input PostStatusOperationFilterInput {
   nin: [PostStatus!]
 }
 
+interface Error {
+  message: String!
+}
+
+"The `DateTime` scalar type represents a date and time with time zone offset information."
+scalar DateTime
+
 "Information about pagination in a connection."
 type PageInfo {
   "Indicates whether more edges exist following the set defined by the clients arguments."
@@ -225,40 +365,28 @@ type PageInfo {
   startCursor: String
   "When paginating forwards, the cursor to continue."
   endCursor: String
+  "A list of cursors to continue paginating forwards."
+  forwardCursors: [PageCursor!]!
+  "A list of cursors to continue paginating backwards."
+  backwardCursors: [PageCursor!]!
 }
-
-"An edge in a connection."
-type AuthorsEdge {
-  "A cursor for use in pagination."
-  cursor: String!
-  "The item at the end of the edge."
-  node: Author!
-}
-
-"An edge in a connection."
-type PostsEdge {
-  "A cursor for use in pagination."
-  cursor: String!
-  "The item at the end of the edge."
-  node: BlogPost!
-}
-
-interface Error {
-  message: String!
-}
-
-"The `DateTime` scalar type represents a date and time with time zone offset information."
-scalar DateTime
 
 type Tag {
   id: Int!
   name: String!
-  posts: [BlogPost!]!
 }
 
 enum PostStatus {
   DRAFT
   PUBLISHED
+}
+
+"A cursor that points to a specific page."
+type PageCursor {
+  "The page number."
+  page: Int!
+  "The cursor."
+  cursor: String!
 }
 
 input CreateAuthorInput {
@@ -268,6 +396,19 @@ input CreateAuthorInput {
 
 type CreateAuthorPayload {
   author: Author
+}
+
+input AddCommentInput {
+  postId: Int!
+  authorId: Int!
+  text: String!
+}
+
+union AddCommentError = AuthorNotFoundError | PostNotFoundError
+
+type AddCommentPayload {
+  comment: Comment
+  errors: [AddCommentError!]
 }
 
 input CreatePostInput {
@@ -310,17 +451,26 @@ type DeletePostPayload {
   errors: [DeletePostError!]
 }
 
-input AddCommentInput {
-  postId: Int!
-  authorId: Int!
-  text: String!
+input CreateTagInput {
+  name: String!
 }
 
-union AddCommentError = AuthorNotFoundError | PostNotFoundError
+union CreateTagError = SlugAlreadyInUseError
 
-type AddCommentPayload {
-  comment: Comment
-  errors: [AddCommentError!]
+type CreateTagPayload {
+  tag: Tag
+  errors: [CreateTagError!]
+}
+
+input DeleteTagInput {
+  id: Int!
+}
+
+union DeleteTagError = TagNotFoundError
+
+type DeleteTagPayload {
+  tag: Tag
+  errors: [DeleteTagError!]
 }
 
 "The purpose of the `cost` directive is to define a `weight` for GraphQL types, fields, and arguments. Static analysis can use these weights when calculating the overall cost of a query or response."

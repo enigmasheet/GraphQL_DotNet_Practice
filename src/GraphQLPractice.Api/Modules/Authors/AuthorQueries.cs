@@ -17,7 +17,10 @@ public static partial class AuthorQueries
         QueryContext<Author> query,
         AppDbContext db,
         CancellationToken ct
-    ) => await db.Authors.With(query).ToPageAsync(pagingArgs, ct);
+    ) =>
+        await db
+            .Authors.With(query, sort => sort.IfEmpty(s => s.AddAscending(a => a.Id)))
+            .ToPageAsync(pagingArgs, ct);
 
     public static Task<Author?> GetAuthorByIdAsync(int id, AppDbContext db, CancellationToken ct) =>
         db.Authors.FirstOrDefaultAsync(a => a.Id == id, ct);

@@ -138,19 +138,22 @@ GraphQL resolves nested objects through resolvers, not one giant query:
     nodes {
       title
       author { name }
-      tags { name }
-      comments {
-        text
-        author { name }
-        post { title }
+      tags(first: 5) { nodes { name } }
+      comments(first: 2) {
+        nodes {
+          text
+          author { name }
+          post { title }
+        }
       }
     }
   }
 }
 ```
 
-- `BlogPost.author`, `BlogPost.comments`, `BlogPost.tags`, `Comment.author` and `Comment.post` are
-  served by the `[ObjectType<T>]` classes in `GraphQL/Types/` via **DataLoaders** (see §11).
+- `BlogPost.author`, `Comment.author` and `Comment.post` are served by the `[ObjectType<T>]` node
+  classes via **DataLoaders** (see §11). `Author.posts`, `BlogPost.comments` and `BlogPost.tags` are
+  paged connections resolved straight from EF with `IQueryable` (see §4).
 - The raw EF navigation properties are hidden with `[GraphQLIgnore]` so there is exactly one way to
   get each field.
 
@@ -168,8 +171,9 @@ query Page($after: String) {
 }
 ```
 
-Start with `after: null`, then pass the previous `endCursor`. This page uses `[UsePaging]`, so a
-client can never ask for an unbounded list (`MaxPageSize = 50`).
+Start with `after: null`, then pass the previous `endCursor`. Every list in this schema is a
+connection built with `[UseConnection]`, and `RequirePagingBoundaries` is on, so a client must always
+pass `first` (or `last`) — omitting it fails with `HC0082` (§10). `MaxPageSize` bounds the page.
 
 ## 5. Filtering
 
@@ -207,16 +211,16 @@ Operators include `eq`, `neq`, `in`, `nin`, `contains`, `startsWith`, `gt`, `lt`
 
 ## 7. Projections
 
-The `tags` query uses `[UseProjection]`. Projection pushes your selection set into SQL, so EF Core
+Paged fields use `QueryContext<T>`, whose `Selector` is built from your selection set, so EF Core
 only reads the columns you asked for:
 
 ```graphql
-{ tags { name } }          # SELECT t."Name" FROM "Tags" AS t
-{ tags { id name } }       # SELECT t."Id", t."Name" FROM "Tags" AS t
+{ tags(first: 2) { nodes { name } } }          # SELECT t."Name" FROM "Tags" AS t …
+{ tags(first: 2) { nodes { id name } } }       # SELECT t."Id", t."Name" FROM "Tags" AS t …
 ```
 
-Watch the API console and compare. Because it is server-driven and strongly typed, GraphQL lets the
-database do less work for the same response shape.
+Watch the API console and compare. (`QueryContext` replaces the older `[UseProjection]` attribute for
+paged fields — do not combine the two on one field; the `HC0099` analyzer warns.)
 
 ## 8. Mutations and typed errors
 
@@ -315,9 +319,44 @@ Production, so debug locally.
 | `{ posts(first: 100) { nodes { id } } }` | 200 | `"The maximum allowed items per page were exceeded."` — `HC0051`, `maxAllowedItems: 50`, `data.posts: null` |
 | `createPost(input: { …, authorId: 99999 })` | 200 | payload `errors: [{ __typename: "AuthorNotFoundError", message: "Author with id 99999 was not found." }]` |
 | `{ postById(id: 99999) { id title } }` | 200 | no error — `data.postById` is simply `null` |
+| `{ posts { nodes { id } } }` (no `first`) | 200 | `"Exactly one slicing argument must be defined."` — `HC0082` |
+| a query estimated over the cost budget | 200 | `"The maximum allowed field cost was exceeded."` — `HC0047` |
 
 The last row is the important habit: **a missing object is `null`, not an error**, so write queries
 that tolerate nullability (the client's `postById` field is nullable for exactly this reason).
+
+### Cost analysis (HC0047)
+
+Hot Chocolate estimates an operation's cost before running it and rejects anything over budget. Two
+independent budgets, both `1000` by default at this size:
+
+- **field cost** — resolver/input work. This is the one that usually trips first.
+- **type cost** — objects in the response.
+
+Cost **multiplies at every list nesting level**, and some fields are expensive:
+
+| Element | Weight |
+|---|---|
+| Scalars/enums (`id`, `title`, `totalCount`) | 0 |
+| Fields returning an object | 1 |
+| Fields without a pure resolver (DataLoader-backed `author`, `comments`, …) | 10 |
+| A paged list | its `first` value (or `DefaultPageSize`); `MaxPageSize` caps it |
+
+Because every list here is a connection with an explicit `first`, the numbers stay small — the
+nested query in §3 reports `fieldCost` in the low hundreds, well under 1000.
+
+Measure any operation with the built-in header (Nitro: **Settings → HTTP headers**):
+
+```
+GraphQL-Cost: report     # executes and returns extensions.operationCost { fieldCost, typeCost }
+GraphQL-Cost: validate   # measures without executing
+```
+
+If a legitimate operation is rejected: bound it more tightly (`first: 5`), select less, or raise the
+budget with `.ModifyCostOptions(o => o.MaxFieldCost = 2_000)` — but prefer bounding lists first.
+
+> HTTP status depends on `Accept`: `400` for `application/graphql-response+json` (curl), `200` for
+> `application/json`. Cost rejections and `HC0082` are field errors and come back as `200` here.
 
 ### Other places to look
 
@@ -413,6 +452,32 @@ GraphQL is self-describing, which is how Nitro and the Strawberry Shake client k
 3. **Add a mutation.** Implement `publishPost(id)` and publish to `onPostPublished`.
 4. **Add filtering** to the nested `BlogPost.comments` field with `[UseFiltering]`.
 5. **Client-side.** Add an `updatePost` form to the Blazor client and surface the `SlugAlreadyInUseError`.
+
+## The same data over REST
+
+The API is a **modular monolith**: each feature is a module that owns its GraphQL types, its EF
+configuration and a set of Minimal API endpoints. See `src/GraphQLPractice.Api/Modules/`.
+
+| Module | GraphQL roots | REST |
+|---|---|---|
+| Authors | `authors`, `authorById`, `createAuthor` | `/api/authors` |
+| Posts | `posts`, `postById`, `createPost`/`updatePost`/`deletePost` | `/api/posts` |
+| Comments | `addComment`, `onCommentAdded` | `/api/comments` |
+| Tags | `tags`, `createTag`, `deleteTag` | `/api/tags` |
+
+The REST endpoints mirror the GraphQL fields, but with HTTP verbs and DTOs instead of one endpoint
+with a query language:
+
+```http
+GET    /api/posts?authorId=1
+GET    /api/posts/2
+POST   /api/posts
+PUT    /api/posts/2
+DELETE /api/posts/2
+```
+
+Browse them at **<http://localhost:5100/scalar>** (Swagger-style UI) or read the OpenAPI document at
+`/openapi/v1.json`. Nitro remains the GraphQL IDE at `/graphql`.
 
 ## Client side (Strawberry Shake)
 

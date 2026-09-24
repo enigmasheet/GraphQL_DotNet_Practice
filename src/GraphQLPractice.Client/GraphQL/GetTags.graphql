@@ -1,6 +1,8 @@
 query GetTags {
-  tags {
-    id
-    name
+  tags(first: 50) {
+    nodes {
+      id
+      name
+    }
   }
 }

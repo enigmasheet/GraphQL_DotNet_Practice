@@ -16,12 +16,14 @@ query GetPosts($first: Int, $after: String, $where: BlogPostFilterInput, $order:
         id
         name
       }
-      tags {
-        id
-        name
+      tags(first: 10) {
+        nodes {
+          id
+          name
+        }
       }
-      comments {
-        id
+      comments(first: 1) {
+        totalCount
       }
     }
   }

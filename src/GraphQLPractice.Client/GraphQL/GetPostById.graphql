@@ -11,17 +11,22 @@ query GetPostById($id: Int!) {
       id
       name
     }
-    tags {
-      id
-      name
-    }
-    comments {
-      id
-      text
-      createdAt
-      author {
+    tags(first: 20) {
+      nodes {
         id
         name
+      }
+    }
+    comments(first: 50) {
+      totalCount
+      nodes {
+        id
+        text
+        createdAt
+        author {
+          id
+          name
+        }
       }
     }
   }
