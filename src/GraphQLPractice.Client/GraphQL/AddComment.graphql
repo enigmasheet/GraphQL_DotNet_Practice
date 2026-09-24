@@ -1,0 +1,22 @@
+mutation AddComment($input: AddCommentInput!) {
+  addComment(input: $input) {
+    comment {
+      id
+      text
+      createdAt
+      author {
+        id
+        name
+      }
+    }
+    errors {
+      __typename
+      ... on AuthorNotFoundError {
+        message
+      }
+      ... on PostNotFoundError {
+        message
+      }
+    }
+  }
+}

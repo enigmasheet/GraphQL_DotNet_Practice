@@ -1,0 +1,137 @@
+@page "/posts"
+@inject IBlogClient Client
+
+<PageTitle>Posts</PageTitle>
+
+<h1>Posts</h1>
+
+<div class="row g-3 mb-3">
+    <div class="col-auto">
+        <label class="form-label" for="status">Status</label>
+        <select id="status" class="form-select" @bind="statusFilter" @bind:after="ReloadAsync">
+            <option value="">All</option>
+            <option value="@PostStatus.Published">Published</option>
+            <option value="@PostStatus.Draft">Draft</option>
+        </select>
+    </div>
+    <div class="col-auto">
+        <label class="form-label" for="sort">Sort</label>
+        <select id="sort" class="form-select" @bind="sortDescending" @bind:after="ReloadAsync">
+            <option value="true">Newest first</option>
+            <option value="false">Oldest first</option>
+        </select>
+    </div>
+</div>
+
+@if (loading)
+{
+    <p><em>Loading posts…</em></p>
+}
+else if (error is not null)
+{
+    <div class="alert alert-danger">@error</div>
+}
+else if (posts.Count == 0)
+{
+    <p>No posts match this filter.</p>
+}
+else
+{
+    <p class="text-muted">Showing @posts.Count of @totalCount posts.</p>
+    <table class="table align-middle">
+        <thead>
+            <tr>
+                <th>Title</th>
+                <th>Author</th>
+                <th>Status</th>
+                <th>Tags</th>
+                <th>Comments</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var post in posts)
+            {
+                <tr>
+                    <td><a href="@($"posts/{post.Id}")">@post.Title</a></td>
+                    <td>@post.Author.Name</td>
+                    <td>@post.Status</td>
+                    <td>@string.Join(", ", post.Tags.Select(t => t.Name))</td>
+                    <td>@post.Comments.Count</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <button class="btn btn-outline-primary" disabled="@(!hasNextPage)" @onclick="LoadMoreAsync">
+        Load more
+    </button>
+}
+
+@code {
+    private readonly List<IGetPosts_Posts_Nodes> posts = [];
+    private bool loading = true;
+    private bool hasNextPage;
+    private string? error;
+    private string? endCursor;
+    private int totalCount;
+    private string statusFilter = string.Empty;
+    private bool sortDescending = true;
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private async Task ReloadAsync()
+    {
+        loading = true;
+        error = null;
+        posts.Clear();
+        endCursor = null;
+        await FetchAsync();
+        loading = false;
+    }
+
+    private async Task LoadMoreAsync()
+    {
+        loading = true;
+        await FetchAsync();
+        loading = false;
+    }
+
+    private async Task FetchAsync()
+    {
+        var where = string.IsNullOrEmpty(statusFilter)
+            ? null
+            : new BlogPostFilterInput
+            {
+                Status = new PostStatusOperationFilterInput
+                {
+                    Eq = Enum.Parse<PostStatus>(statusFilter)
+                }
+            };
+
+        var order = new[]
+        {
+            new BlogPostSortInput
+            {
+                CreatedAt = sortDescending ? SortEnumType.Desc : SortEnumType.Asc
+            }
+        };
+
+        var result = await Client.GetPosts.ExecuteAsync(5, endCursor, where, order);
+
+        if (result.IsErrorResult())
+        {
+            error = string.Join("; ", result.Errors.Select(e => e.Message));
+            return;
+        }
+
+        var connection = result.Data?.Posts;
+        if (connection?.Nodes is { } nodes)
+        {
+            posts.AddRange(nodes);
+        }
+
+        totalCount = connection?.TotalCount ?? 0;
+        hasNextPage = connection?.PageInfo.HasNextPage ?? false;
+        endCursor = connection?.PageInfo.EndCursor;
+    }
+}

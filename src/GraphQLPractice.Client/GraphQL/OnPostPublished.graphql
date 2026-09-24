@@ -1,0 +1,12 @@
+subscription OnPostPublished {
+  onPostPublished {
+    id
+    title
+    slug
+    status
+    publishedAt
+    author {
+      name
+    }
+  }
+}

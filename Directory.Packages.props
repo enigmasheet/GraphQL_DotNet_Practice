@@ -1,0 +1,40 @@
+<Project>
+
+  <!--
+    Central Package Management (CPM).
+    https://learn.microsoft.com/nuget/consume-packages/central-package-management
+    Project files reference packages without a Version; versions live here.
+  -->
+
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+
+  <ItemGroup Label="GraphQL server (all HotChocolate.* must share one version)">
+    <PackageVersion Include="HotChocolate.AspNetCore" Version="16.6.6" />
+    <PackageVersion Include="HotChocolate.AspNetCore.CommandLine" Version="16.6.6" />
+    <PackageVersion Include="HotChocolate.Data" Version="16.6.6" />
+    <PackageVersion Include="HotChocolate.Data.EntityFramework" Version="16.6.6" />
+    <PackageVersion Include="HotChocolate.Types.Analyzers" Version="16.6.6" />
+  </ItemGroup>
+
+  <ItemGroup Label="GraphQL client (Strawberry Shake - must match HotChocolate)">
+    <PackageVersion Include="StrawberryShake.Blazor" Version="16.6.6" />
+  </ItemGroup>
+
+  <ItemGroup Label="Data access">
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.12" />
+    <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
+  </ItemGroup>
+
+  <ItemGroup Label="Analyzers">
+    <PackageVersion Include="StyleCop.Analyzers" Version="1.2.0-beta.556" />
+  </ItemGroup>
+
+  <ItemGroup Label="Blazor WebAssembly">
+    <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="10.0.12" />
+  </ItemGroup>
+
+</Project>

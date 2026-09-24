@@ -1,0 +1,21 @@
+{
+  "schema": "schema.graphql",
+  "documents": "GraphQL/**/*.graphql",
+  "extensions": {
+    "strawberryShake": {
+      "name": "BlogClient",
+      "namespace": "GraphQLPractice.Client.GraphQL",
+      "url": "http://localhost:5100/graphql",
+      "records": {
+        "inputs": false,
+        "entities": false
+      },
+      "transportProfiles": [
+        {
+          "default": "Http",
+          "subscription": "WebSocket"
+        }
+      ]
+    }
+  }
+}

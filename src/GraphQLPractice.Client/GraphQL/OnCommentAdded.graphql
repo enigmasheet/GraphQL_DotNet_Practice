@@ -1,0 +1,11 @@
+subscription OnCommentAdded($postId: Int!) {
+  onCommentAdded(postId: $postId) {
+    id
+    text
+    createdAt
+    author {
+      id
+      name
+    }
+  }
+}

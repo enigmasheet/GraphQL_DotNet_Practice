@@ -38,20 +38,68 @@ ScaffoldingReadMe.txt
 
 # dotenv environment variables file
 .env
+# ...but keep the committed template
+!.env.example
 
-# Others
-~$*
+# -----------------------------------------------------------------------------
+# IDE / editors
+# -----------------------------------------------------------------------------
+.vs/
+.vscode/
+.idea/
+.fleet/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.DotSettings.user
+*.swp
 *~
-CodeCoverage/
 
-# MSBuild Binary and Structured Log
-*.binlog
+# -----------------------------------------------------------------------------
+# OS
+# -----------------------------------------------------------------------------
+Thumbs.db
+Desktop.ini
+.DS_Store
 
-# MSTest test Results
+# -----------------------------------------------------------------------------
+# Test results & coverage
+# -----------------------------------------------------------------------------
 [Tt]est[Rr]esult*/
 [Bb]uild[Ll]og.*
+TestResults/
+*.trx
+*.coverage
+*.coveragexml
+coverage*.json
+coverage*.xml
+coverage*.info
 
-# NUnit
+# MSTest / NUnit / xUnit
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+
+# -----------------------------------------------------------------------------
+# Local overrides / secrets
+# -----------------------------------------------------------------------------
+# appsettings.Development.json IS committed on purpose (local masterTest creds).
+appsettings.*.local.json
+*.local.json
+.env.local
+
+# -----------------------------------------------------------------------------
+# Misc
+# -----------------------------------------------------------------------------
+*.log
+**/Generated/
+
+# -----------------------------------------------------------------------------
+# Do NOT ignore (tracked on purpose)
+# -----------------------------------------------------------------------------
+# dotnet-tools.json                 (local tool manifest: dotnet-ef, Strawberry Shake)
+# src/GraphQLPractice.Client/.graphqlrc.json   (Strawberry Shake client config)
+# src/GraphQLPractice.Client/**/*.graphql      (GraphQL operations)
+# src/GraphQLPractice.Client/schema.graphql    (schema pulled from the API)
+# src/GraphQLPractice.Api/Data/Migrations/**   (EF Core migrations)

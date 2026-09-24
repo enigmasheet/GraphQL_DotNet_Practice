@@ -1,0 +1,29 @@
+<Project>
+
+  <!--
+    Shared MSBuild settings for every project in this repository.
+    https://learn.microsoft.com/visualstudio/msbuild/customize-by-directory
+    Any individual project can still override these values.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <Product>GraphQL DotNet Practice</Product>
+    <Company>GraphQL DotNet Practice</Company>
+    <Version>1.0.0</Version>
+    <NeutralLanguage>en</NeutralLanguage>
+  </PropertyGroup>
+
+  <!-- StyleCop analyzers for every project, configured by the shared stylecop.json. -->
+  <ItemGroup>
+    <PackageReference Include="StyleCop.Analyzers" PrivateAssets="all" />
+    <AdditionalFiles Include="$(MSBuildThisFileDirectory)stylecop.json" Link="stylecop.json" />
+  </ItemGroup>
+
+</Project>

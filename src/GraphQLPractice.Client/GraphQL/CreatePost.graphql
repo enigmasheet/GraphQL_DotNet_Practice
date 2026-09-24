@@ -1,0 +1,22 @@
+mutation CreatePost($input: CreatePostInput!) {
+  createPost(input: $input) {
+    blogPost {
+      id
+      title
+      slug
+      status
+      createdAt
+    }
+    errors {
+      __typename
+      ... on SlugAlreadyInUseError {
+        message
+        slug
+      }
+      ... on AuthorNotFoundError {
+        message
+        authorId
+      }
+    }
+  }
+}

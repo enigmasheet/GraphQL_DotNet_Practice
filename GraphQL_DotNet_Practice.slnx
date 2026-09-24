@@ -1,0 +1,6 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/GraphQLPractice.Api/GraphQLPractice.Api.csproj" />
+    <Project Path="src/GraphQLPractice.Client/GraphQLPractice.Client.csproj" />
+  </Folder>
+</Solution>

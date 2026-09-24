@@ -1,0 +1,141 @@
+@page "/posts/new"
+@inject IBlogClient Client
+@inject NavigationManager Nav
+
+<PageTitle>New Post</PageTitle>
+
+<h1>New Post</h1>
+
+@if (error is not null)
+{
+    <div class="alert alert-danger">@error</div>
+}
+
+<div class="mb-3">
+    <label class="form-label" for="title">Title</label>
+    <input id="title" class="form-control" @bind="title" />
+</div>
+
+<div class="mb-3">
+    <label class="form-label" for="body">Body</label>
+    <textarea id="body" class="form-control" rows="5" @bind="body"></textarea>
+</div>
+
+<div class="mb-3">
+    <label class="form-label" for="author">Author</label>
+    <select id="author" class="form-select" @bind="authorId">
+        @foreach (var author in authors)
+        {
+            <option value="@author.Id">@author.Name</option>
+        }
+    </select>
+</div>
+
+<div class="mb-3">
+    <label class="form-label" for="status">Status</label>
+    <select id="status" class="form-select" @bind="status">
+        <option value="@PostStatus.Draft">Draft</option>
+        <option value="@PostStatus.Published">Published</option>
+    </select>
+</div>
+
+<div class="mb-3">
+    <span class="form-label d-block">Tags</span>
+    @foreach (var tag in tags)
+    {
+        <div class="form-check form-check-inline">
+            <input class="form-check-input" type="checkbox" id="@($"tag-{tag.Id}")"
+                   checked="@selectedTagIds.Contains(tag.Id)"
+                   @onchange="e => ToggleTag(tag.Id, e)" />
+            <label class="form-check-label" for="@($"tag-{tag.Id}")">@tag.Name</label>
+        </div>
+    }
+</div>
+
+<button class="btn btn-primary"
+        disabled="@(saving || string.IsNullOrWhiteSpace(title))"
+        @onclick="SubmitAsync">
+    @(saving ? "Creating…" : "Create post")
+</button>
+
+@code {
+    private readonly List<IGetAuthors_Authors_Nodes> authors = [];
+    private readonly List<IGetTags_Tags> tags = [];
+    private readonly HashSet<int> selectedTagIds = [];
+
+    private string title = string.Empty;
+    private string body = string.Empty;
+    private int authorId;
+    private PostStatus status = PostStatus.Draft;
+    private bool saving;
+    private string? error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authorsResult = await Client.GetAuthors.ExecuteAsync();
+        if (authorsResult.Data?.Authors?.Nodes is { } nodes)
+        {
+            authors.AddRange(nodes);
+            authorId = authors.FirstOrDefault()?.Id ?? 0;
+        }
+
+        var tagsResult = await Client.GetTags.ExecuteAsync();
+        if (tagsResult.Data?.Tags is { } tagList)
+        {
+            tags.AddRange(tagList);
+        }
+    }
+
+    private void ToggleTag(int tagId, ChangeEventArgs args)
+    {
+        if (args.Value is true)
+        {
+            selectedTagIds.Add(tagId);
+        }
+        else
+        {
+            selectedTagIds.Remove(tagId);
+        }
+    }
+
+    private async Task SubmitAsync()
+    {
+        error = null;
+        saving = true;
+
+        var input = new CreatePostInput
+        {
+            Title = title,
+            Body = body,
+            AuthorId = authorId,
+            Status = status,
+            TagIds = selectedTagIds.ToList()
+        };
+
+        var result = await Client.CreatePost.ExecuteAsync(input);
+        saving = false;
+
+        if (result.IsErrorResult())
+        {
+            error = string.Join("; ", result.Errors.Select(e => e.Message));
+            return;
+        }
+
+        var payload = result.Data?.CreatePost;
+        if (payload?.Errors is { Count: > 0 } errors)
+        {
+            error = string.Join("; ", errors.Select(e => e switch
+            {
+                ICreatePost_CreatePost_Errors_SlugAlreadyInUseError slug => slug.Message,
+                ICreatePost_CreatePost_Errors_AuthorNotFoundError author => author.Message,
+                _ => e.__typename
+            }));
+            return;
+        }
+
+        if (payload?.BlogPost is { } created)
+        {
+            Nav.NavigateTo($"posts/{created.Id}");
+        }
+    }
+}

@@ -1,0 +1,189 @@
+@page "/posts/{Id:int}"
+@inject IBlogClient Client
+@implements IDisposable
+
+<PageTitle>Post</PageTitle>
+
+@if (loading)
+{
+    <p><em>Loading post…</em></p>
+}
+else if (error is not null)
+{
+    <div class="alert alert-danger">@error</div>
+}
+else if (post is null)
+{
+    <p>Post not found.</p>
+}
+else
+{
+    <h1>@post.Title</h1>
+    <p class="text-muted">
+        by @post.Author.Name · <span class="badge text-bg-info">@post.Status</span> ·
+        @post.CreatedAt.LocalDateTime
+    </p>
+    <p>@post.Body</p>
+    <p>Tags: @string.Join(", ", post.Tags.Select(t => t.Name))</p>
+
+    <h3 class="mt-4">Comments (@comments.Count)</h3>
+    @if (comments.Count == 0)
+    {
+        <p class="text-muted">No comments yet.</p>
+    }
+    else
+    {
+        <ul class="list-group mb-3">
+            @foreach (var comment in comments)
+            {
+                <li class="list-group-item">
+                    <strong>@comment.AuthorName</strong>: @comment.Text
+                </li>
+            }
+        </ul>
+    }
+
+    <div class="card">
+        <div class="card-body">
+            <h5 class="card-title">Add a comment</h5>
+            <div class="mb-2">
+                <select class="form-select" @bind="commentAuthorId">
+                    @foreach (var author in authors)
+                    {
+                        <option value="@author.Id">@author.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="mb-2">
+                <input class="form-control" placeholder="Say something" @bind="commentText" />
+            </div>
+            <button class="btn btn-primary"
+                    disabled="@(string.IsNullOrWhiteSpace(commentText))"
+                    @onclick="AddCommentAsync">
+                Post comment
+            </button>
+            @if (commentError is not null)
+            {
+                <div class="text-danger mt-2">@commentError</div>
+            }
+        </div>
+    </div>
+
+    <p class="text-muted mt-3">
+        <small>
+            This page listens to the <code>onCommentAdded(postId: @Id)</code> subscription over WebSocket,
+            so comments added by anyone else appear here live.
+        </small>
+    </p>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private sealed record CommentView(int Id, string Text, string AuthorName, DateTimeOffset CreatedAt);
+
+    private readonly List<CommentView> comments = [];
+    private readonly List<IGetAuthors_Authors_Nodes> authors = [];
+    private readonly HashSet<int> seenCommentIds = [];
+
+    private IGetPostById_PostById? post;
+    private IDisposable? subscription;
+    private bool loading = true;
+    private string? error;
+    private string? commentError;
+    private int commentAuthorId;
+    private string commentText = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var postResult = await Client.GetPostById.ExecuteAsync(Id);
+        if (postResult.IsErrorResult())
+        {
+            error = string.Join("; ", postResult.Errors.Select(e => e.Message));
+            loading = false;
+            return;
+        }
+
+        post = postResult.Data?.PostById;
+        if (post is not null)
+        {
+            AddComments(post.Comments.Select(c => new CommentView(c.Id, c.Text, c.Author.Name, c.CreatedAt)));
+        }
+
+        var authorsResult = await Client.GetAuthors.ExecuteAsync();
+        if (authorsResult.Data?.Authors?.Nodes is { } nodes)
+        {
+            authors.AddRange(nodes);
+            commentAuthorId = authors.FirstOrDefault()?.Id ?? 0;
+        }
+
+        subscription = Client.OnCommentAdded
+            .Watch(Id)
+            .Subscribe(result =>
+            {
+                if (result.Data?.OnCommentAdded is not { } added)
+                {
+                    return;
+                }
+
+                if (AddComments([new CommentView(added.Id, added.Text, added.Author.Name, added.CreatedAt)]))
+                {
+                    InvokeAsync(StateHasChanged);
+                }
+            });
+
+        loading = false;
+    }
+
+    private bool AddComments(IEnumerable<CommentView> incoming)
+    {
+        var added = false;
+        foreach (var comment in incoming)
+        {
+            if (seenCommentIds.Add(comment.Id))
+            {
+                comments.Add(comment);
+                added = true;
+            }
+        }
+
+        return added;
+    }
+
+    private async Task AddCommentAsync()
+    {
+        commentError = null;
+
+        var input = new AddCommentInput
+        {
+            PostId = Id,
+            AuthorId = commentAuthorId,
+            Text = commentText
+        };
+
+        var result = await Client.AddComment.ExecuteAsync(input);
+
+        if (result.IsErrorResult())
+        {
+            commentError = string.Join("; ", result.Errors.Select(e => e.Message));
+            return;
+        }
+
+        var payload = result.Data?.AddComment;
+        if (payload?.Errors is { Count: > 0 } errors)
+        {
+            commentError = string.Join("; ", errors.Select(e => e switch
+            {
+                IAddComment_AddComment_Errors_AuthorNotFoundError author => author.Message,
+                IAddComment_AddComment_Errors_PostNotFoundError post => post.Message,
+                _ => e.__typename
+            }));
+            return;
+        }
+
+        commentText = string.Empty;
+        // The new comment also arrives through the subscription above, so we do not add it here.
+    }
+
+    public void Dispose() => subscription?.Dispose();
+}

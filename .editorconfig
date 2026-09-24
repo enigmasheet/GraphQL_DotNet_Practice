@@ -1,0 +1,56 @@
+# EditorConfig: https://editorconfig.org
+# Shared editor + analyzer configuration for every project in this repository.
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = crlf
+insert_final_newline = true
+indent_style = space
+indent_size = 4
+trim_trailing_whitespace = true
+
+[*.{json,yml,yaml,csproj,props,targets,graphql,slnx}]
+indent_size = 2
+
+[*.razor]
+indent_size = 4
+
+[*.cs]
+indent_size = 4
+
+# Put System.* using directives first.
+dotnet_sort_system_directives_first = true
+
+# Prefer file-scoped namespaces (matches the codebase).
+csharp_style_namespace_declarations = file_scoped:warning
+
+# --- StyleCop.Analyzers -----------------------------------------------------
+# Rule configuration lives in stylecop.json; severities live here.
+
+# Informational: XML comment analysis is off because we do not generate XML docs.
+dotnet_diagnostic.SA0001.severity = none
+
+# This repo omits the `this.` qualifier for instance members.
+dotnet_diagnostic.SA1101.severity = none
+
+# This repo does not use file headers.
+dotnet_diagnostic.SA1633.severity = none
+dotnet_diagnostic.SA1634.severity = none
+dotnet_diagnostic.SA1635.severity = none
+dotnet_diagnostic.SA1636.severity = none
+dotnet_diagnostic.SA1637.severity = none
+dotnet_diagnostic.SA1638.severity = none
+
+# Whitespace/layout is owned by the C# formatter, which places a closing
+# parenthesis on its own line for multi-line argument/parameter lists. That is
+# the opposite of what these two rules want, so the formatter wins.
+dotnet_diagnostic.SA1009.severity = none
+dotnet_diagnostic.SA1111.severity = none
+
+# EF Core migrations are generated; do not analyze or format them.
+# Keep this section LAST so it only adds to (never replaces) the [*.cs] settings.
+[**/Migrations/*.cs]
+generated_code = true
+dotnet_diagnostic.IDE0161.severity = none

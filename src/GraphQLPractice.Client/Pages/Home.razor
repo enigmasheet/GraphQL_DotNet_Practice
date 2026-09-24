@@ -1,0 +1,41 @@
+﻿@page "/"
+
+<PageTitle>GraphQL Practice</PageTitle>
+
+<h1>GraphQL Practice</h1>
+
+<p class="lead">
+    A small blog API served with <strong>Hot Chocolate 16</strong> over <strong>PostgreSQL 18</strong>,
+    consumed here by a Blazor WebAssembly app using <strong>Strawberry Shake</strong>.
+</p>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card mb-3">
+            <div class="card-body">
+                <h5 class="card-title">Explore the client</h5>
+                <ul>
+                    <li><a href="posts">Posts</a> — cursor pagination, filtering and sorting</li>
+                    <li><a href="authors">Authors</a> — a generated query component</li>
+                    <li><a href="posts/new">New post</a> — a mutation with typed errors</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card mb-3">
+            <div class="card-body">
+                <h5 class="card-title">Explore the server</h5>
+                <ul>
+                    <li><a href="http://localhost:5100/graphql" target="_blank" rel="noopener">Nitro IDE</a> — the GraphQL playground</li>
+                    <li><a href="http://localhost:5100/graphql/schema" target="_blank" rel="noopener">Schema SDL</a> — the generated schema</li>
+                </ul>
+                <p class="mb-0 text-muted"><small>Open a post and add a comment to see the WebSocket subscription in action.</small></p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<p class="text-muted mt-3">
+    See the repository <code>README.md</code> and <code>docs/graphql-tour.md</code> for a guided tour.
+</p>

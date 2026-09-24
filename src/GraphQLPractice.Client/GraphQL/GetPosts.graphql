@@ -1,0 +1,28 @@
+query GetPosts($first: Int, $after: String, $where: BlogPostFilterInput, $order: [BlogPostSortInput!]) {
+  posts(first: $first, after: $after, where: $where, order: $order) {
+    totalCount
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    nodes {
+      id
+      title
+      slug
+      status
+      createdAt
+      publishedAt
+      author {
+        id
+        name
+      }
+      tags {
+        id
+        name
+      }
+      comments {
+        id
+      }
+    }
+  }
+}

@@ -1,0 +1,70 @@
+using GraphQLPractice.Api.Data;
+using HotChocolate.Data;
+using HotChocolate.Subscriptions;
+using Microsoft.EntityFrameworkCore;
+
+var builder = WebApplication.CreateBuilder(args);
+
+var connectionString =
+    builder.Configuration.GetConnectionString("Postgres")
+    ?? throw new InvalidOperationException(
+        "Connection string 'Postgres' is not configured. See appsettings.Development.json."
+    );
+
+builder.Services.AddDbContextFactory<AppDbContext>(options =>
+    options.UseNpgsql(connectionString, npgsql => npgsql.EnableRetryOnFailure())
+);
+
+// Source-generated from [assembly: DataLoaderModule("DataLoaders")].
+builder.Services.AddDataLoaders();
+
+builder.Services.AddCors(options =>
+{
+    var origins =
+        builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+        ?? ["http://localhost:5200"];
+
+    options.AddPolicy(
+        "client",
+        policy => policy.WithOrigins(origins).AllowAnyHeader().AllowAnyMethod()
+    );
+});
+
+builder
+    .AddGraphQL()
+    .AddTypes() // Source-generated from [assembly: Module("Types")].
+    .AddFiltering()
+    .AddSorting()
+    .AddProjections()
+    .AddInMemorySubscriptions()
+    .AddMutationConventions(applyToAllMutations: true)
+    .RegisterDbContextFactory<AppDbContext>()
+    .ModifyRequestOptions(options =>
+        options.IncludeExceptionDetails = builder.Environment.IsDevelopment()
+    );
+
+var app = builder.Build();
+
+if (app.Environment.IsDevelopment())
+{
+    await using var scope = app.Services.CreateAsyncScope();
+    var factory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
+    await using var db = await factory.CreateDbContextAsync();
+
+    await db.Database.MigrateAsync();
+    await SeedData.SeedAsync(db);
+}
+
+app.UseCors("client");
+app.UseWebSockets();
+
+// GraphQL endpoint + the Nitro IDE when opened in a browser.
+app.MapGraphQL().WithOptions(options => options.Tool.Title = "GraphQL Practice API");
+
+// Dedicated IDE URL (does not shadow the endpoint above).
+app.MapNitroApp("/graphql/ui").WithOptions(options => options.Title = "GraphQL Practice API");
+
+// Download the schema SDL: http://localhost:5100/graphql/schema
+app.MapGraphQLSchema("/graphql/schema");
+
+app.RunWithGraphQLCommands(args);

@@ -1,0 +1,16 @@
+query GetAuthors {
+  authors(first: 50, order: { name: ASC }) {
+    totalCount
+    nodes {
+      id
+      name
+      bio
+      createdAt
+      posts {
+        id
+        title
+        status
+      }
+    }
+  }
+}

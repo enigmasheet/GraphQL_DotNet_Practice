@@ -1,0 +1,31 @@
+@page "/authors"
+
+<PageTitle>Authors</PageTitle>
+
+<h1>Authors</h1>
+
+<p class="text-muted">
+    This page uses the generated <code>&lt;UseGetAuthors&gt;</code> component, which handles the
+    loading and error states for you.
+</p>
+
+<UseGetAuthors>
+    <ChildContent>
+        @foreach (var author in context.Authors!.Nodes!)
+        {
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">@author.Name</h5>
+                    <p class="card-text">@author.Bio</p>
+                    <span class="badge text-bg-secondary">@author.Posts.Count post(s)</span>
+                </div>
+            </div>
+        }
+    </ChildContent>
+    <LoadingContent>
+        <p><em>Loading authors…</em></p>
+    </LoadingContent>
+    <ErrorContent>
+        <div class="alert alert-danger">@context.First().Message</div>
+    </ErrorContent>
+</UseGetAuthors>
