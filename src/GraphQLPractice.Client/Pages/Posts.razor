@@ -52,7 +52,7 @@ else
             @foreach (var post in posts)
             {
                 <tr>
-                    <td><a href="@($"posts/{post.Id}")">@post.Title</a></td>
+                    <td><a href="@($"posts/{Uri.EscapeDataString(post.Id)}")">@post.Title</a></td>
                     <td>@post.Author.Name</td>
                     <td>@post.Status</td>
                     <td>@string.Join(", ", post.Tags.Nodes!.Select(t => t.Name))</td>

@@ -61,11 +61,11 @@
 @code {
     private readonly List<IGetAuthors_Authors_Nodes> authors = [];
     private readonly List<IGetTags_Tags_Nodes> tags = [];
-    private readonly HashSet<int> selectedTagIds = [];
+    private readonly HashSet<string> selectedTagIds = [];
 
     private string title = string.Empty;
     private string body = string.Empty;
-    private int authorId;
+    private string authorId = string.Empty;
     private PostStatus status = PostStatus.Draft;
     private bool saving;
     private string? error;
@@ -76,7 +76,7 @@
         if (authorsResult.Data?.Authors?.Nodes is { } nodes)
         {
             authors.AddRange(nodes);
-            authorId = authors.FirstOrDefault()?.Id ?? 0;
+            authorId = authors.FirstOrDefault()?.Id ?? string.Empty;
         }
 
         var tagsResult = await Client.GetTags.ExecuteAsync();
@@ -86,7 +86,7 @@
         }
     }
 
-    private void ToggleTag(int tagId, ChangeEventArgs args)
+    private void ToggleTag(string tagId, ChangeEventArgs args)
     {
         if (args.Value is true)
         {
@@ -135,7 +135,7 @@
 
         if (payload?.BlogPost is { } created)
         {
-            Nav.NavigateTo($"posts/{created.Id}");
+            Nav.NavigateTo($"posts/{Uri.EscapeDataString(created.Id)}");
         }
     }
 }

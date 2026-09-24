@@ -1,4 +1,4 @@
-subscription OnCommentAdded($postId: Int!) {
+subscription OnCommentAdded($postId: ID!) {
   onCommentAdded(postId: $postId) {
     id
     text

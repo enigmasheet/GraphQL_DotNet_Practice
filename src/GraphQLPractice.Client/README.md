@@ -41,11 +41,20 @@ Build once and Strawberry Shake generates (into `obj/`):
 - The `AddBlogClient()` DI extension.
 
 > **Every list on the server is a connection**, so operations page nested collections explicitly:
-> `comments(first: 50) { totalCount nodes { … } }`, `tags(first: 10) { nodes { … } }`. If the server
-> schema changes, re-pull it (see *Regenerating* below) so the generated `Nodes`/`TotalCount` members
-> line up — otherwise the build fails with missing members.
+> `comments(first: 50) { totalCount nodes { … } }`, `tags(first: 20) { nodes { … } }`. Each nested
+> connection also has its own server-side `MaxPageSize`, so asking for more than the cap returns
+> `HC0051` ("The maximum allowed items per page were exceeded"). If the server schema changes, re-pull
+> it (see *Regenerating* below) so the generated `Nodes`/`TotalCount` members line up — otherwise the
+> build fails with missing members.
 
 The result types expose the connection shape: `result.Data.Posts.Nodes`, `.TotalCount`, `.PageInfo`.
+
+> **Global object identification**: every entity `id` is a global `ID` (a string such as
+> `QmxvZ1Bvc3Q6MQ==`). `GetPostById` fetches through `node(id: $id)` with an inline fragment
+> (`… on BlogPost`), so the page reads `result.Data.Node as IGetPostById_Node_BlogPost` and the route
+> is `@page "/posts/{Id}"` (a string, URL-escaped when navigating). Mutations take the same global ids
+> (`CreatePostInput.AuthorId`, `AddCommentInput.PostId`, …), so ids round-trip from a query straight
+> into a mutation.
 
 Two usage styles appear in `Pages/`:
 

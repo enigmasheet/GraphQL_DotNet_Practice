@@ -1,4 +1,4 @@
-@page "/posts/{Id:int}"
+@page "/posts/{Id}"
 @inject IBlogClient Client
 @implements IDisposable
 
@@ -78,20 +78,25 @@ else
 }
 
 @code {
-    [Parameter] public int Id { get; set; }
+    [Parameter] public string Id { get; set; } = string.Empty;
 
-    private sealed record CommentView(int Id, string Text, string AuthorName, DateTimeOffset CreatedAt);
+    private sealed record CommentView(
+        string Id,
+        string Text,
+        string AuthorName,
+        DateTimeOffset CreatedAt
+    );
 
     private readonly List<CommentView> comments = [];
     private readonly List<IGetAuthors_Authors_Nodes> authors = [];
-    private readonly HashSet<int> seenCommentIds = [];
+    private readonly HashSet<string> seenCommentIds = [];
 
-    private IGetPostById_PostById? post;
+    private IGetPostById_Node_BlogPost? post;
     private IDisposable? subscription;
     private bool loading = true;
     private string? error;
     private string? commentError;
-    private int commentAuthorId;
+    private string commentAuthorId = string.Empty;
     private string commentText = string.Empty;
 
     protected override async Task OnInitializedAsync()
@@ -104,7 +109,7 @@ else
             return;
         }
 
-        post = postResult.Data?.PostById;
+        post = postResult.Data?.Node as IGetPostById_Node_BlogPost;
         if (post is not null)
         {
             AddComments(post.Comments.Nodes!.Select(c => new CommentView(c.Id, c.Text, c.Author.Name, c.CreatedAt)));
@@ -114,7 +119,7 @@ else
         if (authorsResult.Data?.Authors?.Nodes is { } nodes)
         {
             authors.AddRange(nodes);
-            commentAuthorId = authors.FirstOrDefault()?.Id ?? 0;
+            commentAuthorId = authors.FirstOrDefault()?.Id ?? string.Empty;
         }
 
         subscription = Client.OnCommentAdded

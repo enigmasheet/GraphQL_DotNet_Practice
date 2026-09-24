@@ -16,7 +16,7 @@ public static partial class PostNode
         CancellationToken ct
     ) => await authorById.LoadRequiredAsync(post.AuthorId, ct);
 
-    [UseConnection(IncludeTotalCount = true, MaxPageSize = 10)]
+    [UseConnection(IncludeTotalCount = true, MaxPageSize = 50)]
     [UseFiltering]
     [UseSorting]
     public static async Task<PageConnection<Comment>> GetCommentsAsync(

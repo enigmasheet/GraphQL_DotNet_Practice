@@ -157,7 +157,7 @@ type Mutation {
 
 type Subscription {
   onPostPublished: BlogPost!
-  onCommentAdded(postId: Int!): Comment!
+  onCommentAdded(postId: ID!): Comment!
 }
 ```
 

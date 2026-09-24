@@ -6,7 +6,7 @@ query GetAuthors {
       name
       bio
       createdAt
-      posts(first: 20) {
+      posts(first: 10) {
         totalCount
         nodes {
           id

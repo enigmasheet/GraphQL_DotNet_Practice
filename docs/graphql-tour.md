@@ -121,7 +121,9 @@ query List($where: BlogPostFilterInput, $order: [BlogPostSortInput!]) {
 
 Things that trip people up:
 
-- `postById(id: Int!)` needs `2`, not `"2"`. (GraphQL `ID` fields accept either.)
+- `postById(id: Int!)` needs the raw key, `2`, not `"2"`. `node(id: ID!)` is the opposite: it takes
+  the opaque global id **string** (`"QmxvZ1Bvc3Q6Mg=="`). GraphQL `ID` is a string scalar — the
+  difference is the encoding, not the JSON type.
 - Non-null (`!`) variables must always be supplied; nullable ones can be omitted entirely to mean
   "no filter".
 - **Omitting a variable is not the same as sending `null`.** `{ "where": { "status": { "eq": null } } }`
@@ -269,14 +271,18 @@ mutation { addComment(input: { postId: 2, authorId: 1, text: "Nice!" }) { commen
 Open a subscription in Nitro (Nitro uses WebSocket automatically):
 
 ```graphql
-subscription OnCommentAdded($postId: Int!) {
+subscription OnCommentAdded($postId: ID!) {
   onCommentAdded(postId: $postId) { id text author { name } }
 }
 ```
 
 ```json
-{ "postId": 2 }
+{ "postId": "QmxvZ1Bvc3Q6Mg==" }
 ```
+
+`postId` is a global id (`[ID(nameof(BlogPost))]`); Hot Chocolate decodes it to the local key before
+it is substituted into the dynamic topic `OnCommentAdded_{postId}`, which is exactly the topic the
+`addComment` mutation publishes to — so the subscription fires only for that post.
 
 Leave it open, then run `addComment` for post `2` in another tab. `onCommentAdded` uses a
 **dynamic topic** (`OnCommentAdded_{postId}`), so only subscribers for that post receive the event.
