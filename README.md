@@ -5,12 +5,11 @@ A small fullstack GraphQL playground for learning how GraphQL works end to end:
 | Layer | Technology |
 |---|---|
 | GraphQL server | [Hot Chocolate](https://chillicream.com/docs/hotchocolate) 16 (code-first) |
-| REST API | ASP.NET Core Minimal APIs, one endpoint group per module, documented with OpenAPI + [Scalar](https://scalar.com) |
 | Architecture | Modular monolith — feature modules under `Modules/{Authors,Posts,Comments,Tags}` |
 | Database | PostgreSQL 18 in a shared Docker instance, via EF Core 10 + Npgsql |
 | Client | Blazor WebAssembly (.NET 10) with [Strawberry Shake](https://chillicream.com/docs/strawberryshake) |
 | Code style | [StyleCop.Analyzers](https://github.com/DotNetAnalyzers/StyleCopAnalyzers) + `.editorconfig` (build stays warning-free) |
-| Concepts covered | queries, nested resolvers, paging, filtering, sorting, projections, DataLoaders (N+1), mutations with typed errors, subscriptions over WebSocket |
+| Concepts covered | queries, nested resolvers, paging, filtering, sorting, projections, global object identification (Relay `Node`), DataLoaders (N+1), mutations with typed errors, subscriptions over WebSocket |
 
 The domain is a tiny blog: **Author → BlogPost → Comment**, with **Tag** a many-to-many on posts.
 
@@ -32,7 +31,7 @@ docs/
   graphql-tour.md                     # guided GraphQL feature tour
   query-variations.md                 # cookbook: the same query many ways
 src/
-  GraphQLPractice.Api/                # Hot Chocolate server + Minimal APIs + EF Core
+  GraphQLPractice.Api/                # Hot Chocolate server + EF Core
     Modules/                          # Authors | Posts | Comments | Tags (modular monolith)
   GraphQLPractice.Client/             # Blazor WASM + Strawberry Shake client
 ```
@@ -74,10 +73,8 @@ The API also serves:
 - `http://localhost:5100/graphql` — GraphQL endpoint **and** the Nitro IDE when opened in a browser
 - `http://localhost:5100/graphql/ui` — the IDE on its own path
 - `http://localhost:5100/graphql/schema` — the schema SDL
-- `http://localhost:5100/scalar` — Swagger-style UI for the **REST** endpoints (`/api/...`)
-- `http://localhost:5100/openapi/v1.json` — the OpenAPI document
 
-You can skip step 5 entirely and explore the API in Nitro or Scalar.
+You can skip step 5 entirely and explore the API in Nitro.
 
 ## Ports
 
@@ -95,25 +92,35 @@ local Postgres often occupies `5432`; see [docs/dev-setup.md](docs/dev-setup.md)
 Every list is a Relay connection built with `[UseConnection]`, and `RequirePagingBoundaries` is on —
 so every paged field takes `first` (or `last`), plus optional `where`/`order`.
 
+Global object identification is enabled, so every entity `id` is a global `ID!` and any node can be
+fetched with `node(id: ID!)` (or many at once with `nodes(ids: [ID!]!)`). Mutations take global ids in
+their inputs too.
+
 ```graphql
 type Query {
   authors(first: Int, after: String, where: AuthorFilterInput, order: [AuthorSortInput!]): AuthorConnection
   posts(first: Int, after: String, where: BlogPostFilterInput, order: [BlogPostSortInput!]): BlogPostConnection
-  authorById(id: Int!): Author
-  postById(id: Int!): BlogPost
   tags(first: Int, after: String, where: TagFilterInput, order: [TagSortInput!]): TagConnection
+  node(id: ID!): Node
+  nodes(ids: [ID!]!): [Node]!
+  authorById(id: Int!): Author @deprecated(reason: "Use the node(id: ID!) field instead.")
+  postById(id: Int!): BlogPost @deprecated(reason: "Use the node(id: ID!) field instead.")
 }
 
-type Author {
-  id: Int!
+interface Node {
+  id: ID!
+}
+
+type Author implements Node {
+  id: ID!
   name: String!
   bio: String
   createdAt: DateTime!
   posts(first: Int, after: String, where: BlogPostFilterInput, order: [BlogPostSortInput!]): BlogPostConnection!
 }
 
-type BlogPost {
-  id: Int!
+type BlogPost implements Node {
+  id: ID!
   title: String!
   slug: String!
   body: String!
@@ -124,6 +131,18 @@ type BlogPost {
   author: Author!
   comments(first: Int, after: String, where: CommentFilterInput, order: [CommentSortInput!]): CommentConnection!
   tags(first: Int, after: String, where: TagFilterInput, order: [TagSortInput!]): TagConnection!
+}
+
+type Comment implements Node {
+  id: ID!
+  text: String!
+  createdAt: DateTime!
+  author: Author!
+}
+
+type Tag implements Node {
+  id: ID!
+  name: String!
 }
 
 type Mutation {
@@ -150,17 +169,17 @@ dotnet run --project src\GraphQLPractice.Api -- schema export
 
 | Concept | Where to look |
 |---|---|
-| Module pattern (`IModule`, registration, endpoints) | `src/GraphQLPractice.Api/Modules/IModule.cs`, `ModuleRegistry.cs` |
+| Module pattern (`IModule`, registration) | `src/GraphQLPractice.Api/Modules/IModule.cs`, `ModuleRegistry.cs` |
 | Query root + connections, filtering/sorting/projection | `src/GraphQLPractice.Api/Modules/{Posts,Authors,Tags}/*Queries.cs` |
 | Mutations + typed errors (`[Error(typeof(...))]`) | `src/GraphQLPractice.Api/Modules/{Authors,Posts,Comments,Tags}/*Mutations.cs` |
 | Subscriptions + dynamic topics | `Modules/Posts/PostSubscription.cs`, `Modules/Comments/CommentSubscription.cs` |
 | Node resolvers (nested fields) | `Modules/*/*Node.cs` |
 | DataLoaders (batch) | `Modules/Authors/DataLoaders`, `Modules/Posts/DataLoaders` |
-| REST (Minimal API) endpoints + DTOs | `Modules/*/*Endpoints.cs` |
+| Global object identification (`Node`, `[NodeResolver]`, `[ID]`) | `Modules/*/*Queries.cs`, `Modules/*/*Mutations.cs` |
 | Domain model | `src/GraphQLPractice.Api/Models` |
 | Per-module EF configuration | `Modules/*/*Configuration.cs` (applied by `Data/AppDbContext.cs`) |
 | Seed data | `src/GraphQLPractice.Api/Data/SeedData.cs` |
-| Server wiring (modules, GraphQL, OpenAPI/Scalar, CORS) | `src/GraphQLPractice.Api/Program.cs` |
+| Server wiring (modules, GraphQL, CORS) | `src/GraphQLPractice.Api/Program.cs` |
 | Client operations | `src/GraphQLPractice.Client/GraphQL/*.graphql` |
 | Client pages | `src/GraphQLPractice.Client/Pages/*.razor` |
 | Client wiring (client + transports) | `src/GraphQLPractice.Client/Program.cs` |
@@ -200,16 +219,8 @@ dotnet graphql generate -p src\GraphQLPractice.Client # regenerate the typed cli
 | A query returns `null` where you expected an error | Missing objects are `null`, not errors (e.g. `postById(id: 99999)`). Domain errors only appear on mutation payloads. See [docs/graphql-tour.md](docs/graphql-tour.md#10-debugging). |
 | Can't tell why a request failed | `400` = bad request (no `path`); `200` + `errors[].path` = field error. Read `extensions.code` (e.g. `HC0012`, `HC0051`). See [docs/graphql-tour.md](docs/graphql-tour.md#10-debugging). |
 | `HC0082: Exactly one slicing argument must be defined` | Every paged field requires `first` (or `last`). Add it — e.g. `posts(first: 10)`. |
-| `HC0047: The maximum allowed field cost was exceeded` | The operation is too expensive (cost multiplies across nested lists). Bound it with smaller `first`, select less, or raise `ModifyCostOptions(o => o.MaxFieldCost)`. Measure with the `GraphQL-Cost: report` header — see [docs/graphql-tour.md](docs/graphql-tour.md#cost-analysis-hc0047). |
+| `HC0047: The maximum allowed field cost was exceeded` | The operation is too expensive (cost multiplies across nested lists). Bound it with smaller `first`, select less, or raise the budget — this project sets `MaxFieldCost`/`MaxTypeCost` to 10,000 because Hot Chocolate over-prices variable-bound filters. Measure with the `GraphQL-Cost: report` header — see [docs/graphql-tour.md](docs/graphql-tour.md#cost-analysis-hc0047). |
 | Client debug profile looks stale | Delete `src\GraphQLPractice.Client\GraphQLPractice.Client.csproj.user` (it pins an old `https` profile). It is git-ignored. |
-
-## A note on "Scalar" vs "scalar"
-
-[Scalar](https://scalar.com) is an API reference UI for **OpenAPI/AsyncAPI** documents — it renders the
-**REST** endpoints here, at `/scalar`. It cannot render a GraphQL schema; the GraphQL equivalent of
-Swagger UI is **Nitro**, served at `/graphql`. Separately, a GraphQL **scalar** is a leaf type
-(`String`, `Int`, `DateTime`, or a custom one); those are configured in code, not in the UI. See
-[docs/graphql-tour.md](docs/graphql-tour.md#12-scalars).
 
 ## Deliberately out of scope
 

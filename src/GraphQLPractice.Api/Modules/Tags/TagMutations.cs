@@ -24,7 +24,11 @@ public static partial class TagMutations
     }
 
     [Error(typeof(TagNotFoundException))]
-    public static async Task<Tag> DeleteTagAsync(int id, AppDbContext db, CancellationToken ct)
+    public static async Task<Tag> DeleteTagAsync(
+        [ID(nameof(Tag))] int id,
+        AppDbContext db,
+        CancellationToken ct
+    )
     {
         var tag = await db.Tags.FindAsync([id], ct) ?? throw new TagNotFoundException(id);
 

@@ -1,5 +1,6 @@
 namespace GraphQLPractice.Api.Models;
 
+[Node]
 public sealed class Comment
 {
     public int Id { get; set; }

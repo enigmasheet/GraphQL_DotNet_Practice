@@ -8,9 +8,4 @@ internal sealed class AuthorsModule : IModule
     {
         // No module-specific services yet.
     }
-
-    public void MapEndpoints(IEndpointRouteBuilder endpoints)
-    {
-        endpoints.MapAuthorEndpoints();
-    }
 }

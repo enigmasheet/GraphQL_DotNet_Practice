@@ -8,9 +8,4 @@ internal sealed class CommentsModule : IModule
     {
         // No module-specific services yet.
     }
-
-    public void MapEndpoints(IEndpointRouteBuilder endpoints)
-    {
-        endpoints.MapCommentEndpoints();
-    }
 }

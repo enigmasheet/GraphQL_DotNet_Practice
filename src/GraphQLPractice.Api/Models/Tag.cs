@@ -1,5 +1,6 @@
 namespace GraphQLPractice.Api.Models;
 
+[Node]
 public sealed class Tag
 {
     public int Id { get; set; }

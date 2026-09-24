@@ -22,6 +22,13 @@ public static partial class AuthorQueries
             .Authors.With(query, sort => sort.IfEmpty(s => s.AddAscending(a => a.Id)))
             .ToPageAsync(pagingArgs, ct);
 
+    [GraphQLDeprecated("Use the node(id: ID!) field instead.")]
     public static Task<Author?> GetAuthorByIdAsync(int id, AppDbContext db, CancellationToken ct) =>
+        db.Authors.FirstOrDefaultAsync(a => a.Id == id, ct);
+
+    // Node resolver for the Relay global object identification pattern.
+    [NodeResolver]
+    [GraphQLIgnore]
+    public static Task<Author?> ResolveAuthorAsync(int id, AppDbContext db, CancellationToken ct) =>
         db.Authors.FirstOrDefaultAsync(a => a.Id == id, ct);
 }

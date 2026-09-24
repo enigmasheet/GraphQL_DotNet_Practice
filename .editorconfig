@@ -49,10 +49,6 @@ dotnet_diagnostic.SA1638.severity = none
 dotnet_diagnostic.SA1009.severity = none
 dotnet_diagnostic.SA1111.severity = none
 
-# Minimal API modules keep their small request/response DTOs next to the endpoints.
-[**/Modules/**/*Endpoints.cs]
-dotnet_diagnostic.SA1402.severity = none
-
 # EF Core migrations are generated; do not analyze or format them.
 # Keep this section LAST so it only adds to (never replaces) the [*.cs] settings.
 [**/Migrations/*.cs]

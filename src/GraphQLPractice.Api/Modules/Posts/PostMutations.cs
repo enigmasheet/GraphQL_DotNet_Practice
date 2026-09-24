@@ -15,9 +15,9 @@ public static partial class PostMutations
     public static async Task<BlogPost> CreatePostAsync(
         string title,
         string body,
-        int authorId,
+        [ID(nameof(Author))] int authorId,
         PostStatus status,
-        int[]? tagIds,
+        [ID(nameof(Tag))] int[]? tagIds,
         AppDbContext db,
         ITopicEventSender sender,
         CancellationToken ct
@@ -64,7 +64,7 @@ public static partial class PostMutations
     [Error(typeof(PostNotFoundException))]
     [Error(typeof(SlugAlreadyInUseException))]
     public static async Task<BlogPost> UpdatePostAsync(
-        int id,
+        [ID(nameof(BlogPost))] int id,
         string? title,
         string? body,
         PostStatus? status,
@@ -111,7 +111,7 @@ public static partial class PostMutations
 
     [Error(typeof(PostNotFoundException))]
     public static async Task<BlogPost> DeletePostAsync(
-        int id,
+        [ID(nameof(BlogPost))] int id,
         AppDbContext db,
         CancellationToken ct
     )

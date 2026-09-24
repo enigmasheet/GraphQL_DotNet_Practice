@@ -3,7 +3,6 @@ using GraphQLPractice.Api.Modules;
 using HotChocolate.Data;
 using HotChocolate.Subscriptions;
 using Microsoft.EntityFrameworkCore;
-using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -38,9 +37,6 @@ builder.Services.AddCors(options =>
     );
 });
 
-// OpenAPI document for the Minimal API endpoints.
-builder.Services.AddOpenApi();
-
 builder
     .AddGraphQL()
     .AddTypes() // Source-generated from [assembly: Module("Types")].
@@ -48,10 +44,20 @@ builder
     .AddSorting()
     .AddProjections()
     .AddPagingArguments()
+    .AddGlobalObjectIdentification(options => options.MaxAllowedNodeBatchSize = 50)
     .AddInMemorySubscriptions()
     .AddMutationConventions(applyToAllMutations: true)
     .RegisterDbContextFactory<AppDbContext>()
     .ModifyPagingOptions(options => options.RequirePagingBoundaries = true)
+    .ModifyCostOptions(options =>
+    {
+        // Hot Chocolate prices a variable-bound filter/sort input at its worst case, so
+        // ordinary client operations (e.g. GetPosts passing `where`/`order` as variables)
+        // are estimated far above their real cost. Keep the analyzer's protection but
+        // give real operations headroom; measure with the `GraphQL-Cost: report` header.
+        options.MaxFieldCost = 10_000;
+        options.MaxTypeCost = 10_000;
+    })
     .ModifyRequestOptions(options =>
         options.IncludeExceptionDetails = builder.Environment.IsDevelopment()
     );
@@ -79,15 +85,5 @@ app.MapNitroApp("/graphql/ui").WithOptions(options => options.Title = "GraphQL P
 
 // Download the schema SDL: http://localhost:5100/graphql/schema
 app.MapGraphQLSchema("/graphql/schema");
-
-// REST surface (Minimal APIs) described by OpenAPI and browsable in Scalar.
-app.MapOpenApi();
-app.MapScalarApiReference();
-
-// Each module maps its own Minimal API endpoints (grouped under /api).
-foreach (var module in ModuleRegistry.Modules)
-{
-    module.MapEndpoints(app);
-}
 
 app.RunWithGraphQLCommands(args);

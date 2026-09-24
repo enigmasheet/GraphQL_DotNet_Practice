@@ -12,8 +12,8 @@ public static partial class CommentMutations
     [Error(typeof(AuthorNotFoundException))]
     [Error(typeof(PostNotFoundException))]
     public static async Task<Comment> AddCommentAsync(
-        int postId,
-        int authorId,
+        [ID(nameof(BlogPost))] int postId,
+        [ID(nameof(Author))] int authorId,
         string text,
         AppDbContext db,
         ITopicEventSender sender,

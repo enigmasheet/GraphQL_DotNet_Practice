@@ -328,10 +328,13 @@ that tolerate nullability (the client's `postById` field is nullable for exactly
 ### Cost analysis (HC0047)
 
 Hot Chocolate estimates an operation's cost before running it and rejects anything over budget. Two
-independent budgets, both `1000` by default at this size:
+independent budgets:
 
 - **field cost** — resolver/input work. This is the one that usually trips first.
 - **type cost** — objects in the response.
+
+Hot Chocolate's defaults are `MaxFieldCost = 1_000` and `MaxTypeCost = 10_000`; this project sets
+both to `10_000` (see the note below).
 
 Cost **multiplies at every list nesting level**, and some fields are expensive:
 
@@ -353,7 +356,15 @@ GraphQL-Cost: validate   # measures without executing
 ```
 
 If a legitimate operation is rejected: bound it more tightly (`first: 5`), select less, or raise the
-budget with `.ModifyCostOptions(o => o.MaxFieldCost = 2_000)` — but prefer bounding lists first.
+budget with `.ModifyCostOptions(o => o.MaxFieldCost = 20_000)` — but prefer bounding lists first.
+
+> **Why the budget here is 10,000, not 1,000.** Hot Chocolate prices a **variable-bound** filter or
+> sort input at its worst case, so a normal client call like `posts(first: 5, where: $where, …)` —
+> even with `where: null` — is estimated far above its real cost (≈2,400 for `BlogPostFilterInput`
+> alone, vs ≈20 when the same filter is written as a literal). `Program.cs` therefore raises
+> `MaxFieldCost`/`MaxTypeCost` to `10_000`, which lets real client operations through while the
+> analyzer still blocks genuinely expensive ones. If you want the tight default back, avoid
+> variable-bound filters, or shrink the filter input types.
 
 > HTTP status depends on `Accept`: `400` for `application/graphql-response+json` (curl), `200` for
 > `application/json`. Cost rejections and `HC0082` are field errors and come back as `200` here.
@@ -453,31 +464,62 @@ GraphQL is self-describing, which is how Nitro and the Strawberry Shake client k
 4. **Add filtering** to the nested `BlogPost.comments` field with `[UseFiltering]`.
 5. **Client-side.** Add an `updatePost` form to the Blazor client and surface the `SlugAlreadyInUseError`.
 
-## The same data over REST
+## 15. Global object identification (Relay `Node`)
 
-The API is a **modular monolith**: each feature is a module that owns its GraphQL types, its EF
-configuration and a set of Minimal API endpoints. See `src/GraphQLPractice.Api/Modules/`.
+`AddGlobalObjectIdentification()` (in `Program.cs`) enables the [Relay Global Object Identification
+spec](https://relay.dev/graphql/objectidentification.htm). Three things change:
 
-| Module | GraphQL roots | REST |
-|---|---|---|
-| Authors | `authors`, `authorById`, `createAuthor` | `/api/authors` |
-| Posts | `posts`, `postById`, `createPost`/`updatePost`/`deletePost` | `/api/posts` |
-| Comments | `addComment`, `onCommentAdded` | `/api/comments` |
-| Tags | `tags`, `createTag`, `deleteTag` | `/api/tags` |
+**1. `id` becomes a global `ID`.** Every entity is decorated with `[Node]`, so `id` is no longer the
+database key — it is an opaque, globally-unique value. `BlogPost.id` is now `ID!`:
 
-The REST endpoints mirror the GraphQL fields, but with HTTP verbs and DTOs instead of one endpoint
-with a query language:
-
-```http
-GET    /api/posts?authorId=1
-GET    /api/posts/2
-POST   /api/posts
-PUT    /api/posts/2
-DELETE /api/posts/2
+```graphql
+{ posts(first: 1) { nodes { id title } } }
+# => { "id": "QmxvZ1Bvc3Q6MQ==", "title": "…" }
 ```
 
-Browse them at **<http://localhost:5100/scalar>** (Swagger-style UI) or read the OpenAPI document at
-`/openapi/v1.json`. Nitro remains the GraphQL IDE at `/graphql`.
+That value is just `base64("BlogPost:1")`. You never construct it by hand; you pass it back.
+
+**2. Any node is fetchable by id.** The `Query` type gains a `Node` interface and two fields:
+
+```graphql
+{
+  node(id: "QmxvZ1Bvc3Q6MQ==") {
+    id
+    ... on BlogPost { title author { name } }
+    ... on Author { name }
+  }
+}
+```
+
+```graphql
+{ nodes(ids: ["QmxvZ1Bvc3Q6MQ==", "QXV0aG9yOjE="]) { ... on BlogPost { title } ... on Author { name } } }
+```
+
+Each module supplies a `[NodeResolver]` method — e.g. `ResolvePostAsync` in
+`Modules/Posts/PostQueries.cs` — which Hot Chocolate dispatches to based on the type encoded in the id.
+The methods are marked `[GraphQLIgnore]` so they are *not* exposed as extra `Query` fields.
+
+**3. Inputs take global ids.** With global object identification on, the `[ID]` attribute on a
+parameter both marks it as `ID` *and* deserializes it back to the underlying key:
+
+```csharp
+public static async Task<BlogPost> UpdatePostAsync(
+    [ID(nameof(BlogPost))] int id,   // client sends "QmxvZ1Bvc3Q6MQ==", EF gets 1
+    string? title, …)
+```
+
+The optional type name (`[ID(nameof(BlogPost))]`) rejects ids that belong to a different type.
+
+The old `authorById`/`postById` fields still work but are `[GraphQLDeprecated]` — prefer `node(id:)`.
+
+> Cost note: the `Node` interface and `node`/`nodes` fields are included in the schema, so
+> introspection-based cost reports grow slightly. That is expected; see [§10](#10-debugging).
+
+Exercises:
+
+1. Fetch a post's `id`, then round-trip it through `node(id:)`. Confirm you get the same post.
+2. Pass an *author* id to `nodes(ids:)` and confirm the `Author` fragment resolves.
+3. Change `UpdatePostAsync` to `[ID] int id` (drop the type name) and try an author id — what happens?
 
 ## Client side (Strawberry Shake)
 

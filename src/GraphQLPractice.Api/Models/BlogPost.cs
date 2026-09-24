@@ -1,5 +1,6 @@
 namespace GraphQLPractice.Api.Models;
 
+[Node]
 public sealed class BlogPost
 {
     public int Id { get; set; }

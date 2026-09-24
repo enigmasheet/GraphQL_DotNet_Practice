@@ -47,9 +47,6 @@ Build once and Strawberry Shake generates (into `obj/`):
 
 The result types expose the connection shape: `result.Data.Posts.Nodes`, `.TotalCount`, `.PageInfo`.
 
-The same data is also available over REST (`/api/posts`, …) with an OpenAPI UI at
-`http://localhost:5100/scalar`.
-
 Two usage styles appear in `Pages/`:
 
 - **Declarative** (`Authors.razor`) — the generated component handles loading/error:

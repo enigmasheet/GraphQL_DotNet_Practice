@@ -285,4 +285,4 @@ plumbing.
 ## See also
 
 - Cost and limits: [graphql-tour.md §10](graphql-tour.md#10-debugging) (`HC0047`, `HC0082`, `GraphQL-Cost`).
-- The REST equivalent of these operations: `/scalar` (OpenAPI) and the `/api/*` endpoints.
+- Fetching any object by a global id: [graphql-tour.md §15](graphql-tour.md#15-global-object-identification-relay-node).
