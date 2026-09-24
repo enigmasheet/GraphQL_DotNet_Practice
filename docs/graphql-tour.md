@@ -434,7 +434,6 @@ scalars such as `EmailAddress`, `HexColor`, `IPv4`, `Latitude`, `Longitude` and 
 from the `HotChocolate.Types.Scalars` package.
 
 > This project does not currently add any custom scalars — it is a good first exercise (§14).
-> Note: a GraphQL **scalar** is unrelated to the **Scalar** OpenAPI UI.
 
 ## 13. Introspection
 

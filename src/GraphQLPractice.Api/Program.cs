@@ -1,19 +1,40 @@
+using GraphQLPractice.Api.Configuration;
 using GraphQLPractice.Api.Data;
 using GraphQLPractice.Api.Modules;
 using HotChocolate.Data;
 using HotChocolate.Subscriptions;
+using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
-var connectionString =
-    builder.Configuration.GetConnectionString("Postgres")
-    ?? throw new InvalidOperationException(
-        "Connection string 'Postgres' is not configured. See appsettings.Development.json."
-    );
+// Appsettings are surfaced as strongly-typed options, validated at startup rather
+// than read as raw IConfiguration values at the point of use.
+builder
+    .Services.AddOptions<DatabaseSettings>()
+    .BindConfiguration(DatabaseSettings.SectionName)
+    .Validate(
+        settings => !string.IsNullOrWhiteSpace(settings.Postgres),
+        "Connection string 'ConnectionStrings:Postgres' is not configured. See appsettings.Development.json."
+    )
+    .ValidateOnStart();
 
-builder.Services.AddDbContextFactory<AppDbContext>(options =>
-    options.UseNpgsql(connectionString, npgsql => npgsql.EnableRetryOnFailure())
+builder
+    .Services.AddOptions<CorsSettings>()
+    .BindConfiguration(CorsSettings.SectionName)
+    .Validate(
+        settings => settings.AllowedOrigins.Length > 0,
+        "Configuration 'Cors:AllowedOrigins' must contain at least one origin."
+    )
+    .ValidateOnStart();
+
+builder.Services.AddDbContextFactory<AppDbContext>(
+    (serviceProvider, options) =>
+    {
+        var database = serviceProvider.GetRequiredService<IOptions<DatabaseSettings>>().Value;
+        options.UseNpgsql(database.Postgres, npgsql => npgsql.EnableRetryOnFailure());
+    }
 );
 
 // Source-generated from [assembly: DataLoaderModule("DataLoaders")].
@@ -25,17 +46,22 @@ foreach (var module in ModuleRegistry.Modules)
     module.Register(builder.Services);
 }
 
-builder.Services.AddCors(options =>
-{
-    var origins =
-        builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
-        ?? ["http://localhost:5200"];
-
-    options.AddPolicy(
-        "client",
-        policy => policy.WithOrigins(origins).AllowAnyHeader().AllowAnyMethod()
+// The "client" CORS policy is built from CorsSettings through the options pattern,
+// so the origin list has a single source of truth (appsettings: Cors:AllowedOrigins).
+builder.Services.AddCors();
+builder
+    .Services.AddOptions<CorsOptions>()
+    .Configure<IOptions<CorsSettings>>(
+        (cors, settings) =>
+            cors.AddPolicy(
+                "client",
+                policy =>
+                    policy
+                        .WithOrigins(settings.Value.AllowedOrigins)
+                        .AllowAnyHeader()
+                        .AllowAnyMethod()
+            )
     );
-});
 
 builder
     .AddGraphQL()

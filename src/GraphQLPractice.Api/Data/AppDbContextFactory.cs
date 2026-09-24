@@ -1,3 +1,4 @@
+using GraphQLPractice.Api.Configuration;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.Extensions.Configuration;
@@ -16,8 +17,13 @@ public sealed class AppDbContextFactory : IDesignTimeDbContextFactory<AppDbConte
             .AddEnvironmentVariables()
             .Build();
 
+        // Reuse the same strongly-typed settings the app binds at runtime.
+        var settings =
+            configuration.GetSection(DatabaseSettings.SectionName).Get<DatabaseSettings>()
+            ?? new DatabaseSettings();
+
         var connectionString =
-            configuration.GetConnectionString("Postgres")
+            settings.Postgres
             ?? "Host=localhost;Port=55432;Database=graphqlpractice;Username=postgres;Password=mastertest";
 
         var options = new DbContextOptionsBuilder<AppDbContext>()
